@@ -7,3 +7,5 @@ This version has breaking changes — APIs, conventions, and file structure may 
 <!-- END:nextjs-agent-rules -->
 
 keep this project simple this is an exprimental project to learn keep everything concise except code
+
+do not touch scripts/extract_parts.py at all no code changes to this file untill said so
