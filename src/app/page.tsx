@@ -1,65 +1,179 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useRef } from "react";
+import ModelViewer from "@/components/ModelViewer";
+import PartsList from "@/components/PartsList";
 
 export default function Home() {
+  const [view, setView] = useState<"upload" | "analysis">("upload");
+  const [dragActive, setDragActive] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [selectedPart, setSelectedPart] = useState<number | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSelectPart = (i: number) => setSelectedPart(i < 0 ? null : i);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const droppedFile = e.dataTransfer.files[0];
+      if (droppedFile.name.toLowerCase().endsWith(".step") || droppedFile.name.toLowerCase().endsWith(".stp")) {
+        setFile(droppedFile);
+      } else {
+        alert("Please upload a valid STEP file (.step or .stp)");
+      }
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+      if (selectedFile.name.toLowerCase().endsWith(".step") || selectedFile.name.toLowerCase().endsWith(".stp")) {
+        setFile(selectedFile);
+      } else {
+        alert("Please upload a valid STEP file (.step or .stp)");
+      }
+    }
+  };
+
+  const onButtonClick = () => {
+    inputRef.current?.click();
+  };
+
+  const handleAnalyze = () => {
+    if (file) {
+      setView("analysis");
+    }
+  };
+
+  if (view === "analysis") {
+    return (
+      <div className="analysis-container">
+        {/* Left Half: Model Metadata & Analysis */}
+        <section className="left-panel">
+          <button className="back-btn" onClick={() => { setView("upload"); setSelectedPart(null); }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            Back to Upload
+          </button>
+
+          {/* <div className="panel-header">
+            <h2>Model Analysis</h2>
+            <p style={{ color: "#a1a1aa", marginTop: "0.5rem" }}>Detailed geometric data for {file?.name}</p>
+          </div>
+          
+          <div className="info-grid">
+            <div className="info-card">
+              <label>Filename</label>
+              <span>{file?.name}</span>
+            </div>
+            <div className="info-card">
+              <label>File Size</label>
+              <span>{(file!.size / 1024 / 1024).toFixed(2)} MB</span>
+            </div>
+            <div className="info-card">
+              <label>Material</label>
+              <span>Aluminum 6061</span>
+            </div>
+            <div className="info-card">
+              <label>Estimated Cost</label>
+              <span style={{ color: "var(--accent)" }}>$245.00</span>
+            </div>
+          </div> */}
+
+          <PartsList file={file!} selectedIndex={selectedPart} onSelectPart={handleSelectPart} />
+        </section>
+
+        {/* Right Half: 3D Preview */}
+        <section className="right-panel">
+          <div className="panel-header">
+            <h2>3D Preview</h2>
+          </div>
+          <div className="model-preview">
+            {file && <ModelViewer file={file} selectedIndex={selectedPart} />}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main className="main-container">
+      <div className="background-glow"></div>
+      
+      <div className="upload-card">
+        <header className="header">
+          <h1>AutoQuotation</h1>
+          <p>Generate precise quotes for your 3D models.</p>
+        </header>
+
+        <div 
+          className={`drop-zone ${dragActive ? "active" : ""}`}
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+          onClick={onButtonClick}
+        >
+          <input
+            ref={inputRef}
+            type="file"
+            className="file-input"
+            onChange={handleChange}
+            accept=".step,.stp"
+            multiple={false}
+          />
+          
+          <div className="upload-icon">
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="32" 
+              height="32" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+              <line x1="12" y1="22.08" x2="12" y2="12" />
+            </svg>
+          </div>
+
+          {file ? (
+            <div className="file-info">
+              <span style={{ color: "var(--accent)", fontWeight: 600 }}>{file.name}</span>
+              <small style={{ display: "block", marginTop: "4px" }}>{(file.size / 1024 / 1024).toFixed(2)} MB</small>
+            </div>
+          ) : (
+            <>
+              <span>Click or drag STEP file here</span>
+              <small>Supported formats: .step, .stp</small>
+            </>
+          )}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+
+        <button className="btn-upload" disabled={!file} onClick={handleAnalyze}>
+          {file ? "Analyze Model" : "Upload CAD File"}
+        </button>
+      </div>
+    </main>
   );
 }
+
+
+
