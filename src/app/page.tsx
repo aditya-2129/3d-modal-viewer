@@ -1,17 +1,52 @@
 "use client";
 
 import { useState, useRef } from "react";
-import ModelViewer from "@/components/ModelViewer";
-import PartsList from "@/components/PartsList";
+import dynamic from "next/dynamic";
+
+const ModelViewer = dynamic(() => import("@/components/ModelViewer"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center w-full h-full">
+      <div className="text-center">
+        <div className="w-10 h-10 mx-auto mb-3 rounded-full border-[3px] border-[rgba(124,58,237,0.2)] border-t-violet animate-spin" />
+        <p className="font-mono text-[0.75rem] text-fg-sub">Loading 3D Engine…</p>
+      </div>
+    </div>
+  ),
+});
+
+const PartsList = dynamic(() => import("@/components/PartsList"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center">
+      <p className="font-mono text-[0.65rem] text-fg-muted uppercase tracking-wider">Loading…</p>
+    </div>
+  ),
+});
 
 export default function Home() {
   const [view, setView] = useState<"upload" | "analysis">("upload");
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [selectedPart, setSelectedPart] = useState<number | null>(null);
+  const [selectedIndices, setSelectedIndices] = useState<number[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleSelectPart = (i: number) => setSelectedPart(i < 0 ? null : i);
+  const handleSelectPart = (indices: number[] | null) => {
+    if (!indices || indices.length === 0) {
+      setSelectedIndices(null);
+      return;
+    }
+
+    if (
+      selectedIndices &&
+      selectedIndices.length === indices.length &&
+      selectedIndices.every((v, i) => v === indices[i])
+    ) {
+      setSelectedIndices(null);
+    } else {
+      setSelectedIndices(indices);
+    }
+  };
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -25,10 +60,13 @@ export default function Home() {
     e.stopPropagation();
     setDragActive(false);
     const f = e.dataTransfer.files?.[0];
-    if (f && (f.name.toLowerCase().endsWith(".step") || f.name.toLowerCase().endsWith(".stp"))) {
-      setFile(f);
-    } else if (f) {
-      alert("Please upload a valid STEP file (.step or .stp)");
+    if (f) {
+      const name = f.name.toLowerCase();
+      if (name.endsWith(".step") || name.endsWith(".stp")) {
+        setFile(f);
+      } else {
+        alert("Please upload a valid STEP file (.step or .stp)");
+      }
     }
   };
 
@@ -36,10 +74,11 @@ export default function Home() {
     const f = e.target.files?.[0];
     if (!f) return;
     const name = f.name.toLowerCase();
-    if (name.endsWith(".step") || name.endsWith(".stp") || f.type === "" || f.type === "application/octet-stream") {
+    if (name.endsWith(".step") || name.endsWith(".stp")) {
       setFile(f);
     } else {
       alert("Please upload a valid STEP file (.step or .stp)");
+      if (inputRef.current) inputRef.current.value = "";
     }
   };
 
@@ -67,7 +106,7 @@ export default function Home() {
           <div className="flex-1 flex flex-col p-5 overflow-hidden min-h-0 max-md:p-[0.75rem_1rem]">
             <button
               className="flex items-center gap-[0.4rem] bg-transparent border border-border-mid rounded-xs text-fg-sub px-[0.8rem] py-[0.4rem] font-mono text-[0.62rem] font-medium tracking-[0.1em] uppercase cursor-pointer w-fit mb-[0.875rem] transition-all duration-snap ease-expo hover:border-violet hover:text-violet hover:bg-violet-dim hover:-translate-x-[3px] hover:shadow-[4px_0_12px_-4px_var(--color-violet-glow)] active:-translate-x-[3px] active:scale-[0.96] max-md:py-2 max-md:px-[0.875rem] max-md:min-h-9 max-md:mb-2 max-md:hover:translate-x-0 max-md:hover:shadow-none max-md:active:bg-violet-dim max-md:active:border-violet max-md:active:text-violet"
-              onClick={() => { setView("upload"); setSelectedPart(null); }}
+              onClick={() => { setView("upload"); setSelectedIndices(null); }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
@@ -91,7 +130,7 @@ export default function Home() {
               </div>
             </div>
 
-            <PartsList file={file!} selectedIndex={selectedPart} onSelectPart={handleSelectPart} />
+            <PartsList file={file!} selectedIndices={selectedIndices} onSelectPart={handleSelectPart} />
           </div>
         </section>
 
@@ -111,16 +150,18 @@ export default function Home() {
               3D Viewer
             </span>
             <span
-              data-active={selectedPart !== null ? "" : undefined}
+              data-active={selectedIndices !== null ? "" : undefined}
               className="font-mono text-[0.58rem] tracking-[0.1em] uppercase text-fg-muted bg-surface border border-border rounded-xs px-2 py-[2px] transition-all duration-base data-[active]:text-lime data-[active]:bg-lime-dim data-[active]:border-border-lime data-[active]:shadow-[0_0_8px_var(--color-lime-glow)] max-md:text-[0.55rem] max-md:px-[6px] max-md:max-w-[140px] max-md:overflow-hidden max-md:text-ellipsis max-md:whitespace-nowrap"
             >
-              {selectedPart !== null ? `Part ${selectedPart + 1} selected` : "Orbit · Pan · Zoom"}
+              {selectedIndices !== null 
+                ? `${selectedIndices.length} item${selectedIndices.length !== 1 ? 's' : ''} selected` 
+                : "Orbit · Pan · Zoom"}
             </span>
           </div>
 
           <div className="flex-1 flex flex-col p-5 overflow-hidden min-h-0 max-md:p-3 safe-pb">
             <div className="model-preview flex-1 bg-elevated rounded-md border border-border flex items-center justify-center relative overflow-hidden">
-              {file && <ModelViewer file={file} selectedIndex={selectedPart} />}
+              {file && <ModelViewer file={file} selectedIndices={selectedIndices} />}
             </div>
           </div>
         </section>
@@ -136,29 +177,41 @@ export default function Home() {
 
       <div className="upload-card">
         <header className="header flex flex-col items-center">
-          <h1 className="font-display text-[clamp(1.75rem,8vw,2.4rem)] font-extrabold flex items-baseline justify-center gap-0 leading-tight mb-2 text-fg">
-            <span>3D Model</span>
+          <h1 className="font-display text-[1.9rem] font-extrabold text-center leading-tight mb-2 text-fg">
+            3D Model{" "}
             <span className="bg-gradient-to-br from-violet via-[#a78bfa] to-lime bg-clip-text text-transparent">Viewer</span>
           </h1>
           <p>STEP · STP · Geometry Analysis</p>
         </header>
 
-        <label
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".step,.stp,application/octet-stream"
+          onChange={handleChange}
+          multiple={false}
+          style={{
+            position: 'absolute',
+            opacity: 0,
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            pointerEvents: 'none',
+            zIndex: -1
+          }}
+        />
+        <div
           data-active={dragActive ? "" : undefined}
           className="drop-zone border border-border-mid rounded-lg p-[2.25rem_1.5rem] cursor-pointer bg-[rgba(124,58,237,0.04)] flex flex-col items-center gap-3 relative transition-all duration-base ease-expo hover:border-border-strong hover:bg-violet-dim hover:-translate-y-0.5 hover:shadow-[0_8px_40px_var(--color-violet-glow)] data-[active]:border-lime data-[active]:bg-lime-dim data-[active]:shadow-[0_0_0_3px_var(--color-lime-glow),0_12px_40px_var(--color-lime-glow)] data-[active]:scale-[1.01] max-md:p-[2rem_1.25rem] max-md:gap-[0.65rem] max-md:transform-none"
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
           onDrop={handleDrop}
+          onClick={() => inputRef.current?.click()}
+          role="button"
+          tabIndex={0}
           aria-label="Upload STEP file"
         >
-          <input
-            ref={inputRef}
-            type="file"
-            onChange={handleChange}
-            multiple={false}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-[1]"
-          />
           <div className="upload-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
@@ -178,7 +231,7 @@ export default function Home() {
               <small>Accepts .step · .stp</small>
             </>
           )}
-        </label>
+        </div>
 
         <button
           className="btn-upload"

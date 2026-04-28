@@ -118,6 +118,12 @@ body::after {
   z-index: 0;
 }
 
+/* Disable GPU-heavy effects on mobile to prevent low memory crashes */
+@media (max-width: 768px) {
+  body::before { display: none; }
+  body::after  { display: none; }
+}
+
 /* ─── UPLOAD VIEW ─── */
 
 .background-glow::before {
@@ -141,6 +147,14 @@ body::after {
 @keyframes orbFloat {
   from { transform: translate(0, 0) scale(1); }
   to   { transform: translate(30px, -25px) scale(1.1); }
+}
+
+/* Smaller, simpler glows on mobile */
+@media (max-width: 768px) {
+  .background-glow::before,
+  .background-glow::after {
+    display: none !important;
+  }
 }
 
 .upload-card {
@@ -339,23 +353,30 @@ body::after {
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.model-preview::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0;
-  width: 200px; height: 200px;
-  background: radial-gradient(circle at 0% 0%, var(--violet-glow) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: 1;
-}
+.model-preview::before,
 .model-preview::after {
   content: '';
   position: absolute;
+  pointer-events: none;
+  z-index: 1;
+}
+.model-preview::before {
+  top: 0; left: 0;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle at 0% 0%, var(--violet-glow) 0%, transparent 70%);
+}
+.model-preview::after {
   bottom: 0; right: 0;
   width: 150px; height: 150px;
   background: radial-gradient(circle at 100% 100%, var(--lime-glow) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: 1;
+}
+
+/* Disable preview glows on mobile */
+@media (max-width: 768px) {
+  .model-preview::before,
+  .model-preview::after {
+    display: none !important;
+  }
 }
 
 /* ─── MOBILE — ≤ 768px ─── */

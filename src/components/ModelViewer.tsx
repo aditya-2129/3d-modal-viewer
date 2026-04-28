@@ -9,10 +9,10 @@ import occtimportjs from "occt-import-js";
 
 interface ModelViewerProps {
   file: File;
-  selectedIndex?: number | null;
+  selectedIndices?: number[] | null;
 }
 
-function FitCamera({ geometries }: { geometries: THREE.BufferGeometry[] }) {
+function FitCamera({ geometries, resetToken }: { geometries: THREE.BufferGeometry[]; resetToken: number }) {
   const { camera, controls } = useThree();
 
   useEffect(() => {
@@ -47,12 +47,12 @@ function FitCamera({ geometries }: { geometries: THREE.BufferGeometry[] }) {
       (controls as any).target.copy(center);
       (controls as any).update();
     }
-  }, [geometries, camera, controls]);
+  }, [geometries, camera, controls, resetToken]);
 
   return null;
 }
 
-const STEPModel = ({ file, selectedIndex }: { file: File; selectedIndex?: number | null }) => {
+const STEPModel = ({ file, selectedIndices, resetToken }: { file: File; selectedIndices?: number[] | null; resetToken: number }) => {
   const [geometries, setGeometries] = useState<THREE.BufferGeometry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string>("Initializing...");
@@ -108,8 +108,13 @@ const STEPModel = ({ file, selectedIndex }: { file: File; selectedIndex?: number
     };
 
     loadModel();
-    return () => { isMounted = false; };
-  }, [file]);
+    return () => { 
+      isMounted = false;
+      // Explicitly dispose of geometries to free memory on mobile
+      geometries.forEach(geo => geo.dispose());
+    };
+  }, [file]); // Only dependencies are file and geometries for cleanup logic
+
 
   if (error) {
     return (
@@ -133,14 +138,20 @@ const STEPModel = ({ file, selectedIndex }: { file: File; selectedIndex?: number
     );
   }
 
-  const visibleGeometries = selectedIndex != null ? [geometries[selectedIndex]].filter(Boolean) : geometries;
+  const visibleGeometries = selectedIndices != null && selectedIndices.length > 0
+    ? selectedIndices.map(i => geometries[i]).filter(Boolean)
+    : geometries;
 
   return (
     <>
-      <FitCamera geometries={visibleGeometries} />
+      <FitCamera geometries={visibleGeometries} resetToken={resetToken} />
       <group>
         {geometries.map((geo, idx) => {
-          const hidden = selectedIndex != null && idx !== selectedIndex;
+          const hidden =
+            selectedIndices != null &&
+            selectedIndices.length > 0 &&
+            !selectedIndices.includes(idx);
+            
           return (
             <mesh key={idx} geometry={geo} castShadow receiveShadow visible={!hidden}>
               <meshStandardMaterial color="#a1a1aa" metalness={0.8} roughness={0.2} />
@@ -212,13 +223,22 @@ function AxisOverlay({ quatRef }: { quatRef: React.RefObject<THREE.Quaternion> }
       ref={canvasRef}
       width={90}
       height={90}
-      className="absolute bottom-14 left-4 pointer-events-none"
+      className="absolute bottom-16 left-4 pointer-events-none"
     />
   );
 }
 
-export default function ModelViewer({ file, selectedIndex }: ModelViewerProps) {
+export default function ModelViewer({ file, selectedIndices }: ModelViewerProps) {
   const quatRef = useRef(new THREE.Quaternion());
+  const [resetToken, setResetToken] = useState(0);
+  const [isPanMode, setIsPanMode] = useState(false);
+  const [isTouch, setIsTouch] = useState(false);
+
+  useEffect(() => {
+    setIsTouch('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  }, []);
+
+  const handleReset = () => setResetToken(t => t + 1);
 
   return (
     <div className="w-full h-full relative bg-void">
@@ -234,17 +254,76 @@ export default function ModelViewer({ file, selectedIndex }: ModelViewerProps) {
         <Environment preset="city" />
 
         <React.Suspense fallback={<Html center><p className="text-[#71717a]">Initializing Scene...</p></Html>}>
-          <STEPModel file={file} selectedIndex={selectedIndex} />
+          <STEPModel file={file} selectedIndices={selectedIndices} resetToken={resetToken} />
         </React.Suspense>
 
-        <OrbitControls makeDefault />
+        <OrbitControls 
+          makeDefault 
+          enableDamping
+          dampingFactor={0.08}
+          screenSpacePanning={true}
+          touches={{
+            ONE: isPanMode ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE,
+            TWO: THREE.TOUCH.DOLLY_PAN
+          }}
+          mouseButtons={{
+            LEFT: isPanMode ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE,
+            MIDDLE: THREE.MOUSE.DOLLY,
+            RIGHT: THREE.MOUSE.PAN
+          }}
+        />
         <CameraSync quatRef={quatRef} />
       </Canvas>
 
       <AxisOverlay quatRef={quatRef} />
 
-      <div className="absolute bottom-5 left-5 text-[#52525b] text-[0.7rem] pointer-events-none bg-black/50 px-[0.8rem] py-[0.4rem] rounded-[20px] backdrop-blur-[4px]">
-        Left click rotate • Right click pan • Scroll zoom
+      {/* Responsive Legend */}
+      <div className="absolute bottom-5 left-5 text-[#8b87a8] font-mono text-[0.6rem] uppercase tracking-wider pointer-events-none bg-void/60 border border-border-mid px-3 py-2 rounded-sm backdrop-blur-md max-md:hidden">
+        <span className="flex items-center gap-4">
+          <span className="flex items-center gap-1.5 opacity-80"><span className="text-violet">L:</span> Rotate</span>
+          <span className="flex items-center gap-1.5 opacity-80"><span className="text-violet">R:</span> Pan</span>
+          <span className="flex items-center gap-1.5 opacity-80"><span className="text-violet">S:</span> Zoom</span>
+        </span>
+      </div>
+
+      <div className="absolute bottom-5 left-5 text-[#8b87a8] font-mono text-[0.6rem] uppercase tracking-wider pointer-events-none bg-void/60 border border-border-mid px-3 py-2 rounded-sm backdrop-blur-md hidden max-md:block">
+        <span className="flex items-center gap-4">
+          <span className="flex items-center gap-1.5 opacity-80"><span className="text-violet">1F:</span> {isPanMode ? 'Pan' : 'Rotate'}</span>
+          <span className="flex items-center gap-1.5 opacity-80"><span className="text-violet">2F:</span> Pan/Zoom</span>
+        </span>
+      </div>
+
+      {/* Floating Controls */}
+      <div className="absolute bottom-5 right-5 flex flex-col gap-2">
+        <button
+          onClick={() => setIsPanMode(!isPanMode)}
+          className={`w-10 h-10 rounded-sm border flex items-center justify-center transition-all duration-base backdrop-blur-md ${
+            isPanMode 
+              ? 'bg-violet-dim border-violet text-violet shadow-[0_0_12px_var(--color-violet-glow)]' 
+              : 'bg-void/60 border-border-mid text-fg-sub hover:border-violet hover:text-violet'
+          }`}
+          title={isPanMode ? "Switch to Rotate" : "Switch to Pan"}
+        >
+          {isPanMode ? (
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/>
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path d="M12 7v5l3 3"/>
+            </svg>
+          )}
+        </button>
+
+        <button
+          onClick={handleReset}
+          className="w-10 h-10 rounded-sm bg-void/60 border border-border-mid flex items-center justify-center text-fg-sub transition-all duration-base hover:border-violet hover:text-violet backdrop-blur-md active:scale-95"
+          title="Reset View"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 12a9 9 0 109-9 9.75 9.75 0 00-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
+          </svg>
+        </button>
       </div>
     </div>
   );

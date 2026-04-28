@@ -637,6 +637,37 @@ def _stock_reason(shape_type, stats, symmetry, main_axis, outer_cylinder):
         return "Planar area dominance beat rotational signals without enough outer cylinder area."
     return "Planar area and box-like dimensions scored highest."
 
+def compute_group_key(shape, stats, symmetry):
+    """
+    Returns a string fingerprint of a Solid's geometry, invariant to position.
+    Reuses existing stats and symmetry dicts to avoid extra OCC traversal.
+    """
+    try:
+        v = round(float(stats.get("volume", 0.0)), 3)
+        a = round(float(stats.get("total_area", 0.0)), 3)
+        nf = len(shape.Faces)
+        ne = len(shape.Edges)
+        nv = len(shape.Vertexes)
+        ft = stats.get("face_types", {})
+        ft_str = "|".join([f"{k}:{ft[k]}" for k in sorted(ft.keys())])
+        ds = "|".join([str(round(d, 1)) for d in stats.get("dims_sorted", [])])
+        moments = symmetry.get("moments", [])
+        if moments:
+            m_max = max(moments)
+            ms = "|".join([str(round(m / m_max, 4)) if m_max > 0 else "0.0" for m in moments])
+        else:
+            ms = ""
+        return f"{v}|{a}|{nf}|{ne}|{nv}|{ft_str}|{ds}|{ms}"
+    except Exception:
+        return None
+
+def center_of_mass_dict(shape):
+    """Returns the centroid rounded to 1 decimal."""
+    try:
+        cm = shape.CenterOfMass
+        return {"x": round(float(cm.x), 1), "y": round(float(cm.y), 1), "z": round(float(cm.z), 1)}
+    except Exception:
+        return None
 
 def walk_shape(shape, label="Root", depth=0):
     node = {
@@ -702,6 +733,10 @@ def extract_parts(filepath, out_dir):
                 fname = safe_filename(child_name, part_index)
                 out_path = os.path.join(out_dir, fname)
                 Part.export([solid], out_path)
+                
+                solid_stats = get_face_stats(solid)
+                solid_sym = detect_symmetry(solid)
+                
                 children.append({
                     "name": child_name,
                     "type": "Solid",
@@ -709,6 +744,9 @@ def extract_parts(filepath, out_dir):
                     "stock": classify_stock(solid),
                     "stepFile": fname,
                     "children": [],
+                    "groupKey": compute_group_key(solid, solid_stats, solid_sym),
+                    "centerOfMass": center_of_mass_dict(solid),
+                    "globalIndex": part_index,
                 })
                 part_index += 1
 
@@ -725,6 +763,10 @@ def extract_parts(filepath, out_dir):
             fname = safe_filename(label, part_index)
             out_path = os.path.join(out_dir, fname)
             Part.export([shape], out_path)
+            
+            solid_stats = get_face_stats(shape)
+            solid_sym = detect_symmetry(shape)
+            
             parts.append({
                 "name": label,
                 "type": shape_type,
@@ -733,6 +775,9 @@ def extract_parts(filepath, out_dir):
                 "stock": classify_stock(shape),
                 "stepFile": fname,
                 "children": [],
+                "groupKey": compute_group_key(shape, solid_stats, solid_sym),
+                "centerOfMass": center_of_mass_dict(shape),
+                "globalIndex": part_index,
             })
             part_index += 1
 

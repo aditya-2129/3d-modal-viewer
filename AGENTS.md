@@ -8,13 +8,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 keep this project simple this is an exprimental project to learn keep everything concise except code
 
-do not touch scripts/extract_parts.py at all no code changes to this file untill said so
-
-## FreeCAD docs — strict access rule
+FreeCAD docs — strict access rule
 
 The `freecad_docs/` folder exists ONLY for tasks that directly involve `scripts/extract_parts.py` or any new FreeCAD Python script.
 
 **Do not open, read, or reference any file in `freecad_docs/` unless your task is:**
+
 - modifying `scripts/extract_parts.py`
 - writing a new FreeCAD Python script
 - debugging a FreeCAD geometry or Part API issue in a Python script

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 
 interface BoundingBox {
   xMin: number; yMin: number; zMin: number;
@@ -25,6 +25,46 @@ interface Part {
   boundingBox: BoundingBox | null;
   stock?: Stock | null;
   children: Part[];
+  groupKey?: string | null;
+  centerOfMass?: { x: number; y: number; z: number } | null;
+  globalIndex?: number;
+}
+
+type PartGroup = {
+  representative: Part;
+  indices: number[];                                      // original flat indices
+  positions: Array<{ x: number; y: number; z: number } | null>;
+};
+
+function groupSiblings(parts: Part[]): PartGroup[] {
+  const groups = new Map<string, PartGroup>();
+  const order: string[] = [];
+  let singletonIdx = 0;
+
+  parts.forEach((part) => {
+    // Default to the part's own index if for some reason globalIndex is missing
+    const gIdx = part.globalIndex ?? 0;
+    
+    const key = (part.groupKey && part.groupKey !== "") 
+      ? part.groupKey 
+      : `__singleton_${singletonIdx++}`;
+
+    if (groups.has(key)) {
+      const g = groups.get(key)!;
+      g.indices.push(gIdx);
+      g.positions.push(part.centerOfMass || null);
+    } else {
+      const g: PartGroup = {
+        representative: part,
+        indices: [gIdx],
+        positions: [part.centerOfMass || null],
+      };
+      groups.set(key, g);
+      order.push(key);
+    }
+  });
+
+  return order.map(k => groups.get(k)!);
 }
 
 function formatStock(stock: Stock): { label: string; dims: string } {
@@ -46,30 +86,33 @@ function typeStyle(type: string): { bg: string; border: string; color: string } 
   }
 }
 
-function PartRow({ part, depth, index, selectedIndex, onSelect, onSelectAndClose }: {
-  part: Part;
+function PartRow({ group, depth, selectedIndices, onSelect, onSelectAndClose }: {
+  group: PartGroup;
   depth: number;
-  index: number;
-  selectedIndex: number | null;
-  onSelect: (i: number) => void;
-  onSelectAndClose?: (i: number) => void;
+  selectedIndices: number[] | null;
+  onSelect: (indices: number[]) => void;
+  onSelectAndClose?: (indices: number[]) => void;
 }) {
   const [open, setOpen] = useState(depth === 0);
+  const [expanded, setExpanded] = useState(false);
+  const part = group.representative;
+  const count = group.indices.length;
   const hasChildren = part.children.length > 0;
   const bb = part.boundingBox;
-  const isSelected = selectedIndex === index;
+  
+  const isSelected = selectedIndices != null && 
+    group.indices.every(idx => selectedIndices.includes(idx));
+    
   const ts = typeStyle(part.type);
 
   const partDim = bb ? `${bb.xLen.toFixed(1)}×${bb.yLen.toFixed(1)}×${bb.zLen.toFixed(1)}` : null;
   const stockInfo = part.stock ? formatStock(part.stock) : null;
 
   const handleClick = () => {
-    if (hasChildren) setOpen(!open);
-    if (onSelectAndClose) {
-      onSelectAndClose(isSelected ? -1 : index);
-    } else {
-      onSelect(isSelected ? -1 : index);
-    }
+    if (count === 1 && hasChildren) setOpen(!open);
+    const target = isSelected ? [] : group.indices;
+    if (onSelectAndClose) onSelectAndClose(target);
+    else onSelect(target);
   };
 
   return (
@@ -91,52 +134,108 @@ function PartRow({ part, depth, index, selectedIndex, onSelect, onSelectAndClose
         onFocus={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(124,58,237,0.06)"; }}
         onBlur={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
       >
-        <span className="w-[11px] shrink-0 text-fg-muted text-[0.58rem] font-mono leading-none mt-[2px]">
-          {hasChildren ? (open ? "▾" : "▸") : "·"}
-        </span>
-
-        <span
-          className="font-mono text-[0.56rem] font-semibold p-[1px_5px] rounded-[3px] shrink-0 tracking-[0.06em] leading-[1.5] mt-[1px]"
-          style={{
-            background: ts.bg,
-            border: `1px solid ${ts.border}`,
-            color: ts.color,
-          }}
-        >
-          {part.type.toUpperCase()}
-        </span>
-
         <span 
-          className="font-mono text-[0.73rem] flex-1 break-all leading-[1.5] tracking-[0.01em]"
-          style={{
-            fontWeight: isSelected ? 500 : 400,
-            color: isSelected ? "var(--fg)" : "var(--fg-sub)",
+          className="w-[11px] shrink-0 text-fg-muted text-[0.58rem] font-mono leading-none mt-[2px] hover:text-fg transition-colors"
+          onClick={(e) => {
+            if (count > 1) {
+              e.stopPropagation();
+              setExpanded(!expanded);
+            } else if (hasChildren) {
+              e.stopPropagation();
+              setOpen(!open);
+            }
           }}
         >
-          {part.name}
+          {count > 1 ? (expanded ? "▾" : "▸") : hasChildren ? (open ? "▾" : "▸") : "·"}
         </span>
 
-        {(partDim || stockInfo) && (
-          <div className="flex flex-col items-end gap-[2px] shrink-0">
-            {partDim && (
-              <span className="font-mono text-[0.58rem] text-fg-muted tracking-[0.02em]">
-                {partDim}
+        <div className="flex flex-col flex-1 min-w-0">
+          <div className="flex items-start gap-[0.45rem]">
+            <span
+              className="font-mono text-[0.56rem] font-semibold p-[1px_5px] rounded-[3px] shrink-0 tracking-[0.06em] leading-[1.5] mt-[1px]"
+              style={{
+                background: ts.bg,
+                border: `1px solid ${ts.border}`,
+                color: ts.color,
+              }}
+            >
+              {part.type.toUpperCase()}
+            </span>
+
+            {count > 1 && (
+              <span className="font-mono text-[0.58rem] text-lime tracking-[0.02em] bg-lime-dim border border-[rgba(163,230,53,0.25)] rounded-xs px-[5px] mt-[1px]">
+                ×{count}
               </span>
             )}
-            {stockInfo && (
-              <span className="font-mono text-[0.58rem] text-lime tracking-[0.02em]">
-                <span className="opacity-[0.55] mr-[3px]">{stockInfo.label}</span>
-                {stockInfo.dims}
-              </span>
+
+            <span 
+              className="font-mono text-[0.73rem] flex-1 break-all leading-[1.5] tracking-[0.01em]"
+              style={{
+                fontWeight: isSelected ? 500 : 400,
+                color: isSelected ? "var(--fg)" : "var(--fg-sub)",
+              }}
+            >
+              {part.name}
+            </span>
+
+            {(partDim || stockInfo) && (
+              <div className="flex flex-col items-end gap-[2px] shrink-0">
+                {partDim && (
+                  <span className="font-mono text-[0.58rem] text-fg-muted tracking-[0.02em]">
+                    {partDim}
+                  </span>
+                )}
+                {stockInfo && (
+                  <span className="font-mono text-[0.58rem] text-lime tracking-[0.02em]">
+                    <span className="opacity-[0.55] mr-[3px]">{stockInfo.label}</span>
+                    {stockInfo.dims}
+                  </span>
+                )}
+              </div>
             )}
           </div>
-        )}
+        </div>
       </div>
+
+      {expanded && count > 1 && (
+        <div className="py-1">
+          {group.indices.map((idx, i) => {
+            const pos = group.positions[i];
+            const isInstanceSelected = selectedIndices?.length === 1 && selectedIndices[0] === idx;
+            return (
+              <div
+                key={idx}
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const target = isInstanceSelected ? [] : [idx];
+                  if (onSelectAndClose) onSelectAndClose(target);
+                  else onSelect(target);
+                }}
+                className="flex items-center gap-2 p-[0.35rem_0.875rem] cursor-pointer transition-colors border-l-2 border-transparent"
+                style={{
+                  paddingLeft: `${0.875 + depth * 1.1 + 1.2}rem`,
+                  background: isInstanceSelected ? "rgba(124,58,237,0.08)" : "transparent",
+                  borderLeftColor: isInstanceSelected ? "#7c3aed" : "transparent"
+                }}
+                onMouseEnter={e => { if (!isInstanceSelected) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.025)"; }}
+                onMouseLeave={e => { if (!isInstanceSelected) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+              >
+                <span className="font-mono text-[0.62rem] text-fg-muted">#{i + 1}</span>
+                <span className="font-mono text-[0.62rem] text-fg-sub opacity-70">
+                  · {pos ? `(${pos.x}, ${pos.y}, ${pos.z})` : `Instance ${i + 1}`}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {open && hasChildren && (
         <div>
-          {part.children.map((child, i) => (
-            <PartRow key={i} part={child} depth={depth + 1} index={index} selectedIndex={selectedIndex} onSelect={onSelect} onSelectAndClose={onSelectAndClose} />
+          {groupSiblings(part.children).map((g, i) => (
+            <PartRow key={i} group={g} depth={depth + 1} selectedIndices={selectedIndices} onSelect={onSelect} onSelectAndClose={onSelectAndClose} />
           ))}
         </div>
       )}
@@ -144,14 +243,16 @@ function PartRow({ part, depth, index, selectedIndex, onSelect, onSelectAndClose
   );
 }
 
-function PartsListContent({ parts, loading, error, selectedIndex, onSelect, onSelectAndClose }: {
+function PartsListContent({ parts, loading, error, selectedIndices, onSelect, onSelectAndClose }: {
   parts: Part[] | null;
   loading: boolean;
   error: string | null;
-  selectedIndex: number | null;
-  onSelect: (i: number) => void;
-  onSelectAndClose?: (i: number) => void;
+  selectedIndices: number[] | null;
+  onSelect: (indices: number[]) => void;
+  onSelectAndClose?: (indices: number[]) => void;
 }) {
+  const groups = useMemo(() => parts ? groupSiblings(parts) : [], [parts]);
+
   return (
     <div className="flex-1 overflow-y-auto min-h-0">
       {loading && (
@@ -179,17 +280,17 @@ function PartsListContent({ parts, loading, error, selectedIndex, onSelect, onSe
         </div>
       )}
 
-      {parts && parts.map((p, i) => (
-        <PartRow key={i} part={p} depth={0} index={i} selectedIndex={selectedIndex} onSelect={onSelect} onSelectAndClose={onSelectAndClose} />
+      {groups.map((g, i) => (
+        <PartRow key={i} group={g} depth={0} selectedIndices={selectedIndices} onSelect={onSelect} onSelectAndClose={onSelectAndClose} />
       ))}
     </div>
   );
 }
 
-export default function PartsList({ file, selectedIndex, onSelectPart }: {
+export default function PartsList({ file, selectedIndices, onSelectPart }: {
   file: File;
-  selectedIndex: number | null;
-  onSelectPart: (i: number) => void;
+  selectedIndices: number[] | null;
+  onSelectPart: (indices: number[] | null) => void;
 }) {
   const [parts, setParts] = useState<Part[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -206,6 +307,10 @@ export default function PartsList({ file, selectedIndex, onSelectPart }: {
       .finally(() => setLoading(false));
   }, [file]);
 
+  const groups = useMemo(() => parts ? groupSiblings(parts) : [], [parts]);
+  const totalCount = parts?.length ?? 0;
+  const groupCount = groups.length;
+
   // Close modal on Escape
   useEffect(() => {
     if (!modalOpen) return;
@@ -214,12 +319,11 @@ export default function PartsList({ file, selectedIndex, onSelectPart }: {
     return () => window.removeEventListener("keydown", handler);
   }, [modalOpen]);
 
-  const handleSelectAndClose = useCallback((i: number) => {
-    onSelectPart(i);
+  const handleSelectAndClose = useCallback((indices: number[]) => {
+    onSelectPart(indices.length > 0 ? indices : null);
     setModalOpen(false);
   }, [onSelectPart]);
 
-  const count = parts?.length ?? 0;
 
   return (
     <>
@@ -243,7 +347,11 @@ export default function PartsList({ file, selectedIndex, onSelectPart }: {
             {loading && (
               <span className="inline-block w-[5px] h-[5px] rounded-full bg-violet animate-[dotPulse_1.1s_ease-in-out_infinite]" />
             )}
-            {loading ? "Scanning…" : error ? "Error" : `${count} part${count !== 1 ? "s" : ""}`}
+            {loading ? "Scanning…" : error ? "Error" : (
+              groupCount !== totalCount 
+                ? `${groupCount} unique · ${totalCount} total` 
+                : `${totalCount} part${totalCount !== 1 ? "s" : ""}`
+            )}
           </span>
         </button>
 
@@ -252,7 +360,7 @@ export default function PartsList({ file, selectedIndex, onSelectPart }: {
           parts={parts}
           loading={loading}
           error={error}
-          selectedIndex={selectedIndex}
+          selectedIndices={selectedIndices}
           onSelect={onSelectPart}
         />
       </div>
@@ -274,7 +382,9 @@ export default function PartsList({ file, selectedIndex, onSelectPart }: {
                   Parts Hierarchy
                 </span>
                 <span className="font-mono text-[0.58rem] text-lime bg-lime-dim border border-[rgba(163,230,53,0.25)] rounded-xs p-[1px_7px] tracking-[0.08em]">
-                  {count} part{count !== 1 ? "s" : ""}
+                  {groupCount !== totalCount 
+                    ? `${groupCount} unique · ${totalCount} total` 
+                    : `${totalCount} part${totalCount !== 1 ? "s" : ""}`}
                 </span>
               </div>
               <button
@@ -298,7 +408,7 @@ export default function PartsList({ file, selectedIndex, onSelectPart }: {
               parts={parts}
               loading={loading}
               error={error}
-              selectedIndex={selectedIndex}
+              selectedIndices={selectedIndices}
               onSelect={onSelectPart}
               onSelectAndClose={handleSelectAndClose}
             />
