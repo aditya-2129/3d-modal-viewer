@@ -1,11 +1,19 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import { OrbitControls, Html, Environment } from "@react-three/drei";
 import * as THREE from "three";
 // @ts-ignore
 import occtimportjs from "occt-import-js";
+
+// Suppress THREE.Clock deprecation warning from @react-three/fiber internals.
+// R3F v9 still uses THREE.Clock; this is not fixable from our side.
+const _origWarn = console.warn;
+console.warn = (...args: unknown[]) => {
+  if (typeof args[0] === "string" && args[0].includes("THREE.Clock")) return;
+  _origWarn.apply(console, args);
+};
 
 interface ModelViewerProps {
   file: File;
@@ -19,10 +27,19 @@ function FitCamera({ geometries, resetToken }: { geometries: THREE.BufferGeometr
     if (geometries.length === 0) return;
 
     const box = new THREE.Box3();
+    let hasValidGeometries = false;
+
     geometries.forEach(g => {
-      const mesh = new THREE.Mesh(g);
-      box.expandByObject(mesh);
+      if (!g || !g.attributes || !g.attributes.position || g.attributes.position.count === 0) return;
+      g.computeBoundingBox();
+      if (g.boundingBox && !isNaN(g.boundingBox.min.x) && isFinite(g.boundingBox.min.x)) {
+        const mesh = new THREE.Mesh(g);
+        box.expandByObject(mesh);
+        hasValidGeometries = true;
+      }
     });
+
+    if (!hasValidGeometries || box.isEmpty()) return;
 
     const size = new THREE.Vector3();
     const center = new THREE.Vector3();
@@ -30,16 +47,26 @@ function FitCamera({ geometries, resetToken }: { geometries: THREE.BufferGeometr
     box.getCenter(center);
 
     const maxDim = Math.max(size.x, size.y, size.z);
-    const fov = (camera as THREE.PerspectiveCamera).fov * (Math.PI / 180);
-    const distance = (maxDim / 2 / Math.tan(fov / 2)) * 2;
+    if (isNaN(maxDim) || maxDim <= 0) return;
 
-    camera.position.set(
+    const fov = (camera as THREE.PerspectiveCamera).fov * (Math.PI / 180);
+    let distance = (maxDim / 2 / Math.tan(fov / 2)) * 2;
+    
+    // Clamp to prevent camera from disappearing to infinity or zero
+    distance = Math.max(distance, 0.1);
+    distance = Math.min(distance, 100000);
+
+    const targetPos = new THREE.Vector3(
       center.x + distance * 0.7,
       center.y + distance * 0.5,
       center.z + distance * 0.7
     );
-    camera.near = distance / 1000;
-    camera.far = distance * 10;
+
+    if (isNaN(targetPos.x) || isNaN(targetPos.y) || isNaN(targetPos.z)) return;
+
+    camera.position.copy(targetPos);
+    camera.near = Math.max(distance / 1000, 0.01);
+    camera.far = Math.max(distance * 10, 1000);
     camera.updateProjectionMatrix();
     camera.lookAt(center);
 
@@ -56,6 +83,7 @@ const STEPModel = ({ file, selectedIndices, resetToken }: { file: File; selected
   const [geometries, setGeometries] = useState<THREE.BufferGeometry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string>("Initializing...");
+  const [retryCount, setRetryCount] = useState<number>(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -66,13 +94,20 @@ const STEPModel = ({ file, selectedIndices, resetToken }: { file: File; selected
         const occt = await occtimportjs({ locateFile: (path: string) => `/lib/${path}` });
 
         if (!isMounted) return;
-        setProgress("Reading STEP file...");
+
+        const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+        const isIges = ext === 'iges' || ext === 'igs';
+        const formatLabel = isIges ? 'IGES' : 'STEP';
+
+        setProgress(`Reading ${formatLabel} file...`);
 
         const buffer = await file.arrayBuffer();
         const uint8Array = new Uint8Array(buffer);
 
         setProgress("Tessellating 3D Geometry...");
-        const result = occt.ReadStepFile(uint8Array, null);
+        const result = isIges
+          ? occt.ReadIgesFile(uint8Array, null)
+          : occt.ReadStepFile(uint8Array, null);
 
         if (!result?.success) {
           throw new Error("CAD processing failed. The file might be invalid or too complex.");
@@ -113,15 +148,24 @@ const STEPModel = ({ file, selectedIndices, resetToken }: { file: File; selected
       // Explicitly dispose of geometries to free memory on mobile
       geometries.forEach(geo => geo.dispose());
     };
-  }, [file]); // Only dependencies are file and geometries for cleanup logic
+  }, [file, retryCount]); // Include retryCount to trigger reload on retry
 
 
   if (error) {
     return (
       <Html center>
         <div className="text-[#fca5a5] text-center bg-[rgba(20,20,20,0.9)] p-6 rounded-xl border border-[#7f1d1d] w-[300px]">
-          <h3 className="mb-2">Render Failed</h3>
-          <p className="text-[0.875rem]">{error}</p>
+          <h3 className="mb-2 font-semibold">Render Failed</h3>
+          <p className="text-[0.875rem] mb-4 text-opacity-80">{error}</p>
+          <button 
+            onClick={() => {
+              setError(null);
+              setRetryCount(c => c + 1);
+            }}
+            className="px-4 py-1.5 bg-[#7f1d1d] hover:bg-[#991b1b] text-white text-sm rounded transition-colors"
+          >
+            Retry
+          </button>
         </div>
       </Html>
     );
@@ -154,7 +198,7 @@ const STEPModel = ({ file, selectedIndices, resetToken }: { file: File; selected
             
           return (
             <mesh key={idx} geometry={geo} castShadow receiveShadow visible={!hidden}>
-              <meshStandardMaterial color="#a1a1aa" metalness={0.8} roughness={0.2} />
+              <meshStandardMaterial color="#8b87a8" metalness={0.6} roughness={0.4} />
             </mesh>
           );
         })}
@@ -243,9 +287,19 @@ export default function ModelViewer({ file, selectedIndices }: ModelViewerProps)
   return (
     <div className="w-full h-full relative bg-void">
       <Canvas
-        shadows
+        shadows={{ type: THREE.PCFShadowMap }}
         camera={{ position: [100, 100, 100], fov: 45, near: 0.1, far: 100000 }}
         gl={{ antialias: true, powerPreference: "high-performance" }}
+        onCreated={({ gl }) => {
+          const canvas = gl.domElement;
+          canvas.addEventListener("webglcontextlost", (e) => {
+            e.preventDefault();            // allow restore
+            console.warn("WebGL context lost — waiting for restore…");
+          });
+          canvas.addEventListener("webglcontextrestored", () => {
+            console.info("WebGL context restored.");
+          });
+        }}
       >
         <color attach="background" args={["#050505"]} />
         <ambientLight intensity={0.4} />

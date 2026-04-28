@@ -15,6 +15,8 @@ declare module 'occt-import-js' {
 
   export interface OCCTInstance {
     ReadStepFile: (data: Uint8Array, params: any) => OCCTResult;
+    ReadIgesFile: (data: Uint8Array, params: any) => OCCTResult;
+    ReadBrepFile: (data: Uint8Array, params: any) => OCCTResult;
   }
 
   export default function occtimportjs(options?: {

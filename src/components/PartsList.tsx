@@ -86,19 +86,21 @@ function typeStyle(type: string): { bg: string; border: string; color: string } 
   }
 }
 
-function PartRow({ group, depth, selectedIndices, onSelect, onSelectAndClose }: {
+function PartRow({ group, depth, selectedIndices, onSelect, onSelectAndClose, expanded, onToggleExpand }: {
   group: PartGroup;
   depth: number;
   selectedIndices: number[] | null;
   onSelect: (indices: number[]) => void;
   onSelectAndClose?: (indices: number[]) => void;
+  expanded?: boolean;
+  onToggleExpand?: (key: string | null) => void;
 }) {
   const [open, setOpen] = useState(depth === 0);
-  const [expanded, setExpanded] = useState(false);
   const part = group.representative;
   const count = group.indices.length;
   const hasChildren = part.children.length > 0;
   const bb = part.boundingBox;
+  const groupKey = part.groupKey || `__idx_${group.indices[0]}`;
   
   const isSelected = selectedIndices != null && 
     group.indices.every(idx => selectedIndices.includes(idx));
@@ -109,10 +111,17 @@ function PartRow({ group, depth, selectedIndices, onSelect, onSelectAndClose }: 
   const stockInfo = part.stock ? formatStock(part.stock) : null;
 
   const handleClick = () => {
-    if (count === 1 && hasChildren) setOpen(!open);
-    const target = isSelected ? [] : group.indices;
-    if (onSelectAndClose) onSelectAndClose(target);
-    else onSelect(target);
+    if (count > 1) {
+      const willExpand = !expanded;
+      onToggleExpand?.(willExpand ? groupKey : null);
+      const target = willExpand ? group.indices : [];
+      onSelect(target);
+    } else {
+      if (hasChildren) setOpen(!open);
+      const target = isSelected ? [] : group.indices;
+      if (onSelectAndClose) onSelectAndClose(target);
+      else onSelect(target);
+    }
   };
 
   return (
@@ -134,20 +143,7 @@ function PartRow({ group, depth, selectedIndices, onSelect, onSelectAndClose }: 
         onFocus={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(124,58,237,0.06)"; }}
         onBlur={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
       >
-        <span 
-          className="w-[11px] shrink-0 text-fg-muted text-[0.58rem] font-mono leading-none mt-[2px] hover:text-fg transition-colors"
-          onClick={(e) => {
-            if (count > 1) {
-              e.stopPropagation();
-              setExpanded(!expanded);
-            } else if (hasChildren) {
-              e.stopPropagation();
-              setOpen(!open);
-            }
-          }}
-        >
-          {count > 1 ? (expanded ? "▾" : "▸") : hasChildren ? (open ? "▾" : "▸") : "·"}
-        </span>
+
 
         <div className="flex flex-col flex-1 min-w-0">
           <div className="flex items-start gap-[0.45rem]">
@@ -163,8 +159,23 @@ function PartRow({ group, depth, selectedIndices, onSelect, onSelectAndClose }: 
             </span>
 
             {count > 1 && (
-              <span className="font-mono text-[0.58rem] text-lime tracking-[0.02em] bg-lime-dim border border-[rgba(163,230,53,0.25)] rounded-xs px-[5px] mt-[1px]">
+              <span 
+                className="font-mono text-[0.58rem] text-lime tracking-[0.02em] bg-lime-dim border border-[rgba(163,230,53,0.25)] rounded-xs px-[5px] mt-[1px] cursor-pointer hover:bg-[rgba(163,230,53,0.18)] hover:border-[rgba(163,230,53,0.4)] transition-colors flex items-center gap-[3px]"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const willExpand = !expanded;
+                  onToggleExpand?.(willExpand ? groupKey : null);
+                  onSelect(willExpand ? group.indices : []);
+                }}
+                title={expanded ? 'Collapse instances' : `Expand ${count} instances`}
+              >
                 ×{count}
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 150ms ease' }}
+                >
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
               </span>
             )}
 
@@ -209,9 +220,9 @@ function PartRow({ group, depth, selectedIndices, onSelect, onSelectAndClose }: 
                 tabIndex={0}
                 onClick={(e) => {
                   e.stopPropagation();
-                  const target = isInstanceSelected ? [] : [idx];
-                  if (onSelectAndClose) onSelectAndClose(target);
-                  else onSelect(target);
+                  // Deselect instance → fall back to full group selection
+                  const target = isInstanceSelected ? group.indices : [idx];
+                  onSelect(target);
                 }}
                 className="flex items-center gap-2 p-[0.35rem_0.875rem] cursor-pointer transition-colors border-l-2 border-transparent"
                 style={{
@@ -252,6 +263,7 @@ function PartsListContent({ parts, loading, error, selectedIndices, onSelect, on
   onSelectAndClose?: (indices: number[]) => void;
 }) {
   const groups = useMemo(() => parts ? groupSiblings(parts) : [], [parts]);
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   return (
     <div className="flex-1 overflow-y-auto min-h-0">
@@ -280,9 +292,21 @@ function PartsListContent({ parts, loading, error, selectedIndices, onSelect, on
         </div>
       )}
 
-      {groups.map((g, i) => (
-        <PartRow key={i} group={g} depth={0} selectedIndices={selectedIndices} onSelect={onSelect} onSelectAndClose={onSelectAndClose} />
-      ))}
+      {groups.map((g, i) => {
+        const key = g.representative.groupKey || `__idx_${g.indices[0]}`;
+        return (
+          <PartRow
+            key={i}
+            group={g}
+            depth={0}
+            selectedIndices={selectedIndices}
+            onSelect={onSelect}
+            onSelectAndClose={onSelectAndClose}
+            expanded={expandedKey === key}
+            onToggleExpand={setExpandedKey}
+          />
+        );
+      })}
     </div>
   );
 }

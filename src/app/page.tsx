@@ -62,10 +62,10 @@ export default function Home() {
     const f = e.dataTransfer.files?.[0];
     if (f) {
       const name = f.name.toLowerCase();
-      if (name.endsWith(".step") || name.endsWith(".stp")) {
+      if (name.endsWith(".step") || name.endsWith(".stp") || name.endsWith(".iges") || name.endsWith(".igs")) {
         setFile(f);
       } else {
-        alert("Please upload a valid STEP file (.step or .stp)");
+        alert("Please upload a valid CAD file (.step, .stp, .iges, or .igs)");
       }
     }
   };
@@ -74,10 +74,10 @@ export default function Home() {
     const f = e.target.files?.[0];
     if (!f) return;
     const name = f.name.toLowerCase();
-    if (name.endsWith(".step") || name.endsWith(".stp")) {
+    if (name.endsWith(".step") || name.endsWith(".stp") || name.endsWith(".iges") || name.endsWith(".igs")) {
       setFile(f);
     } else {
-      alert("Please upload a valid STEP file (.step or .stp)");
+      alert("Please upload a valid CAD file (.step, .stp, .iges, or .igs)");
       if (inputRef.current) inputRef.current.value = "";
     }
   };
@@ -125,7 +125,7 @@ export default function Home() {
               <div className="flex-1 min-w-0">
                 <div className="font-mono text-[0.73rem] font-medium text-fg truncate max-md:text-[0.7rem]">{file?.name}</div>
                 <div className="font-mono text-[0.58rem] text-fg-muted tracking-[0.08em] uppercase mt-[2px] max-md:text-[0.55rem]">
-                  {file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · STEP` : ""}
+                  {file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · ${file.name.toLowerCase().match(/\.(iges|igs)$/) ? 'IGES' : 'STEP'}` : ""}
                 </div>
               </div>
             </div>
@@ -181,13 +181,13 @@ export default function Home() {
             3D Model{" "}
             <span className="bg-gradient-to-br from-violet via-[#a78bfa] to-lime bg-clip-text text-transparent">Viewer</span>
           </h1>
-          <p>STEP · STP · Geometry Analysis</p>
+          <p>STEP · STP · IGES · Geometry Analysis</p>
         </header>
 
         <input
           ref={inputRef}
           type="file"
-          accept=".step,.stp,application/octet-stream"
+          accept=".step,.stp,.iges,.igs,application/octet-stream"
           onChange={handleChange}
           multiple={false}
           style={{
@@ -227,8 +227,8 @@ export default function Home() {
             </div>
           ) : (
             <>
-              <span>Drop your STEP file here</span>
-              <small>Accepts .step · .stp</small>
+              <span>Drop your CAD file here</span>
+              <small>Accepts .step · .stp · .iges · .igs</small>
             </>
           )}
         </div>
@@ -242,7 +242,7 @@ export default function Home() {
           {file ? "Analyze Model →" : "Select a File to Continue"}
         </button>
 
-        <p className="upload-footer">AutoQuotation · v2 · STEP Analyzer</p>
+        <p className="upload-footer">AutoQuotation · v2 · STEP & IGES Analyzer</p>
       </div>
     </main>
   );
