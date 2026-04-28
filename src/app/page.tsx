@@ -137,10 +137,10 @@ export default function Home() {
       <div className="upload-card">
         <header className="header flex flex-col items-center">
           <h1 className="font-display text-[clamp(1.75rem,8vw,2.4rem)] font-extrabold flex items-baseline justify-center gap-0 leading-tight mb-2 text-fg">
-            <span>Auto</span>
-            <span className="bg-gradient-to-br from-violet via-[#a78bfa] to-lime bg-clip-text text-transparent">Quotation</span>
+            <span>3D Model</span>
+            <span className="bg-gradient-to-br from-violet via-[#a78bfa] to-lime bg-clip-text text-transparent">Viewer</span>
           </h1>
-          <p>CNC · STEP · STP · Geometry Analysis</p>
+          <p>STEP · STP · Geometry Analysis</p>
         </header>
 
         <label
