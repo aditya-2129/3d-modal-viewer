@@ -639,25 +639,24 @@ def _stock_reason(shape_type, stats, symmetry, main_axis, outer_cylinder):
 
 def compute_group_key(shape, stats, symmetry):
     """
-    Returns a string fingerprint of a Solid's geometry, invariant to position.
-    Reuses existing stats and symmetry dicts to avoid extra OCC traversal.
+    Returns a string fingerprint of a Solid's geometry, invariant to position/rotation.
+    Uses volume + area + sorted bbox dims + principal moments of inertia.
+    We format values to 3-4 significant digits (e.g. '%.4g') instead of absolute
+    rounding. Inertia scales with Length^5, so typical values reach 10^8. Absolute
+    rounding to 0 decimals breaks because 0.0001% noise = diff of 100.
     """
     try:
-        v = round(float(stats.get("volume", 0.0)), 3)
-        a = round(float(stats.get("total_area", 0.0)), 3)
-        nf = len(shape.Faces)
-        ne = len(shape.Edges)
-        nv = len(shape.Vertexes)
-        ft = stats.get("face_types", {})
-        ft_str = "|".join([f"{k}:{ft[k]}" for k in sorted(ft.keys())])
-        ds = "|".join([str(round(d, 1)) for d in stats.get("dims_sorted", [])])
-        moments = symmetry.get("moments", [])
-        if moments:
-            m_max = max(moments)
-            ms = "|".join([str(round(m / m_max, 4)) if m_max > 0 else "0.0" for m in moments])
-        else:
-            ms = ""
-        return f"{v}|{a}|{nf}|{ne}|{nv}|{ft_str}|{ds}|{ms}"
+        v = "%.4g" % float(stats.get("volume", 0.0))
+        a = "%.4g" % float(stats.get("total_area", 0.0))
+        ds = "|".join(["%.3g" % d for d in stats.get("dims_sorted", [])])
+        
+        try:
+            m = shape.PrincipalProperties.get("Moments", [0, 0, 0])
+            m_str = "|".join(["%.3g" % x for x in m])
+        except Exception:
+            m_str = "0|0|0"
+            
+        return f"{v}|{a}|{ds}|{m_str}"
     except Exception:
         return None
 
@@ -733,10 +732,10 @@ def extract_parts(filepath, out_dir):
                 fname = safe_filename(child_name, part_index)
                 out_path = os.path.join(out_dir, fname)
                 Part.export([solid], out_path)
-                
+
                 solid_stats = get_face_stats(solid)
                 solid_sym = detect_symmetry(solid)
-                
+
                 children.append({
                     "name": child_name,
                     "type": "Solid",
@@ -763,10 +762,10 @@ def extract_parts(filepath, out_dir):
             fname = safe_filename(label, part_index)
             out_path = os.path.join(out_dir, fname)
             Part.export([shape], out_path)
-            
+
             solid_stats = get_face_stats(shape)
             solid_sym = detect_symmetry(shape)
-            
+
             parts.append({
                 "name": label,
                 "type": shape_type,
