@@ -114,17 +114,9 @@ const STEPModel = ({ file, selectedIndex }: { file: File; selectedIndex?: number
   if (error) {
     return (
       <Html center>
-        <div style={{
-          color: "#fca5a5",
-          textAlign: "center",
-          background: "rgba(20,20,20,0.9)",
-          padding: "1.5rem",
-          borderRadius: "12px",
-          border: "1px solid #7f1d1d",
-          width: "300px",
-        }}>
-          <h3 style={{ margin: "0 0 0.5rem 0" }}>Render Failed</h3>
-          <p style={{ fontSize: "0.875rem", margin: 0 }}>{error}</p>
+        <div className="text-[#fca5a5] text-center bg-[rgba(20,20,20,0.9)] p-6 rounded-xl border border-[#7f1d1d] w-[300px]">
+          <h3 className="mb-2">Render Failed</h3>
+          <p className="text-[0.875rem]">{error}</p>
         </div>
       </Html>
     );
@@ -133,16 +125,9 @@ const STEPModel = ({ file, selectedIndex }: { file: File; selectedIndex?: number
   if (geometries.length === 0) {
     return (
       <Html center>
-        <div style={{ color: "var(--accent)", textAlign: "center", minWidth: "200px" }}>
-          <div style={{
-            width: "40px", height: "40px", margin: "0 auto 1rem",
-            border: "3px solid rgba(168,85,247,0.2)",
-            borderTop: "3px solid var(--accent)",
-            borderRadius: "50%",
-            animation: "spin 1s linear infinite",
-          }} />
-          <p style={{ margin: 0, fontSize: "0.9rem", color: "#a1a1aa" }}>{progress}</p>
-          <style>{`@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}`}</style>
+        <div className="text-violet text-center min-w-[200px]">
+          <div className="w-10 h-10 mx-auto mb-4 rounded-full border-[3px] border-[rgba(168,85,247,0.2)] border-t-violet animate-spin" />
+          <p className="text-[0.9rem] text-[#a1a1aa]">{progress}</p>
         </div>
       </Html>
     );
@@ -227,12 +212,7 @@ function AxisOverlay({ quatRef }: { quatRef: React.RefObject<THREE.Quaternion> }
       ref={canvasRef}
       width={90}
       height={90}
-      style={{
-        position: "absolute",
-        bottom: "3.5rem",
-        left: "1rem",
-        pointerEvents: "none",
-      }}
+      className="absolute bottom-14 left-4 pointer-events-none"
     />
   );
 }
@@ -241,7 +221,7 @@ export default function ModelViewer({ file, selectedIndex }: ModelViewerProps) {
   const quatRef = useRef(new THREE.Quaternion());
 
   return (
-    <div style={{ width: "100%", height: "100%", position: "relative", background: "#050505" }}>
+    <div className="w-full h-full relative bg-void">
       <Canvas
         shadows
         camera={{ position: [100, 100, 100], fov: 45, near: 0.1, far: 100000 }}
@@ -253,7 +233,7 @@ export default function ModelViewer({ file, selectedIndex }: ModelViewerProps) {
         <directionalLight position={[-10, -5, -10]} intensity={0.3} />
         <Environment preset="city" />
 
-        <React.Suspense fallback={<Html center><p style={{ color: "#71717a" }}>Initializing Scene...</p></Html>}>
+        <React.Suspense fallback={<Html center><p className="text-[#71717a]">Initializing Scene...</p></Html>}>
           <STEPModel file={file} selectedIndex={selectedIndex} />
         </React.Suspense>
 
@@ -263,12 +243,7 @@ export default function ModelViewer({ file, selectedIndex }: ModelViewerProps) {
 
       <AxisOverlay quatRef={quatRef} />
 
-      <div style={{
-        position: "absolute", bottom: "1.25rem", left: "1.25rem",
-        color: "#52525b", fontSize: "0.7rem", pointerEvents: "none",
-        background: "rgba(0,0,0,0.5)", padding: "0.4rem 0.8rem",
-        borderRadius: "20px", backdropFilter: "blur(4px)",
-      }}>
+      <div className="absolute bottom-5 left-5 text-[#52525b] text-[0.7rem] pointer-events-none bg-black/50 px-[0.8rem] py-[0.4rem] rounded-[20px] backdrop-blur-[4px]">
         Left click rotate • Right click pan • Scroll zoom
       </div>
     </div>

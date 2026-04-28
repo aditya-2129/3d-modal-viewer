@@ -80,76 +80,52 @@ function PartRow({ part, depth, index, selectedIndex, onSelect, onSelectAndClose
         aria-selected={isSelected}
         onClick={handleClick}
         onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleClick(); }}}
+        className="flex items-start gap-[0.45rem] p-[0.5rem_0.875rem] cursor-pointer border-b border-[rgba(124,58,237,0.06)] transition-[background,border-color] duration-[120ms] outline-none"
         style={{
-          display: "flex",
-          alignItems: "flex-start",
-          gap: "0.45rem",
-          padding: "0.5rem 0.875rem",
           paddingLeft: `${0.875 + depth * 1.1}rem`,
-          cursor: "pointer",
-          borderBottom: "1px solid rgba(124,58,237,0.06)",
-          transition: "background 0.12s, border-color 0.12s",
           background: isSelected ? "rgba(124,58,237,0.10)" : "transparent",
           borderLeft: `2px solid ${isSelected ? "#7c3aed" : "transparent"}`,
-          outline: "none",
         }}
         onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.025)"; }}
         onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
         onFocus={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(124,58,237,0.06)"; }}
         onBlur={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
       >
-        <span style={{
-          width: "11px",
-          flexShrink: 0,
-          color: "var(--fg-muted)",
-          fontSize: "0.58rem",
-          fontFamily: "var(--font-mono)",
-          lineHeight: 1,
-          marginTop: "2px",
-        }}>
+        <span className="w-[11px] shrink-0 text-fg-muted text-[0.58rem] font-mono leading-none mt-[2px]">
           {hasChildren ? (open ? "▾" : "▸") : "·"}
         </span>
 
-        <span style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "0.56rem",
-          fontWeight: 600,
-          padding: "1px 5px",
-          borderRadius: "3px",
-          background: ts.bg,
-          border: `1px solid ${ts.border}`,
-          color: ts.color,
-          flexShrink: 0,
-          letterSpacing: "0.06em",
-          lineHeight: 1.5,
-          marginTop: "1px",
-        }}>
+        <span
+          className="font-mono text-[0.56rem] font-semibold p-[1px_5px] rounded-[3px] shrink-0 tracking-[0.06em] leading-[1.5] mt-[1px]"
+          style={{
+            background: ts.bg,
+            border: `1px solid ${ts.border}`,
+            color: ts.color,
+          }}
+        >
           {part.type.toUpperCase()}
         </span>
 
-        <span style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "0.73rem",
-          fontWeight: isSelected ? 500 : 400,
-          color: isSelected ? "var(--fg)" : "var(--fg-sub)",
-          flex: 1,
-          wordBreak: "break-all",
-          lineHeight: 1.5,
-          letterSpacing: "0.01em",
-        }}>
+        <span 
+          className="font-mono text-[0.73rem] flex-1 break-all leading-[1.5] tracking-[0.01em]"
+          style={{
+            fontWeight: isSelected ? 500 : 400,
+            color: isSelected ? "var(--fg)" : "var(--fg-sub)",
+          }}
+        >
           {part.name}
         </span>
 
         {(partDim || stockInfo) && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "2px", flexShrink: 0 }}>
+          <div className="flex flex-col items-end gap-[2px] shrink-0">
             {partDim && (
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "var(--fg-muted)", letterSpacing: "0.02em" }}>
+              <span className="font-mono text-[0.58rem] text-fg-muted tracking-[0.02em]">
                 {partDim}
               </span>
             )}
             {stockInfo && (
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "var(--lime)", letterSpacing: "0.02em" }}>
-                <span style={{ opacity: 0.55, marginRight: "3px" }}>{stockInfo.label}</span>
+              <span className="font-mono text-[0.58rem] text-lime tracking-[0.02em]">
+                <span className="opacity-[0.55] mr-[3px]">{stockInfo.label}</span>
                 {stockInfo.dims}
               </span>
             )}
@@ -177,14 +153,12 @@ function PartsListContent({ parts, loading, error, selectedIndex, onSelect, onSe
   onSelectAndClose?: (i: number) => void;
 }) {
   return (
-    <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+    <div className="flex-1 overflow-y-auto min-h-0">
       {loading && (
-        <div style={{ padding: "1rem 0.875rem", display: "flex", flexDirection: "column", gap: "6px" }}>
+        <div className="p-[1rem_0.875rem] flex flex-col gap-[6px]">
           {[100, 80, 90, 70, 85].map((w, i) => (
-            <div key={i} style={{
-              height: "28px",
+            <div key={i} className="h-[28px] rounded-xs" style={{
               background: `linear-gradient(90deg, var(--bg-surface) 0%, rgba(124,58,237,0.06) 50%, var(--bg-surface) 100%)`,
-              borderRadius: "var(--r-xs)",
               width: `${w}%`,
               animation: `shimmerRow 1.4s ease-in-out infinite`,
               animationDelay: `${i * 120}ms`,
@@ -194,27 +168,13 @@ function PartsListContent({ parts, loading, error, selectedIndex, onSelect, onSe
       )}
 
       {error && (
-        <div style={{
-          margin: "0.875rem",
-          padding: "0.75rem 0.875rem",
-          fontFamily: "var(--font-mono)",
-          fontSize: "0.68rem",
-          color: "var(--error)",
-          background: "rgba(248,113,113,0.06)",
-          border: "1px solid rgba(248,113,113,0.20)",
-          borderRadius: "var(--r-xs)",
-          lineHeight: 1.6,
-        }}>
+        <div className="m-[0.875rem] p-[0.75rem_0.875rem] font-mono text-[0.68rem] text-error bg-[rgba(248,113,113,0.06)] border border-[rgba(248,113,113,0.20)] rounded-xs leading-relaxed">
           {error}
         </div>
       )}
 
       {parts && parts.length === 0 && (
-        <div style={{
-          padding: "2.5rem 1rem", textAlign: "center",
-          fontFamily: "var(--font-mono)", fontSize: "0.68rem",
-          color: "var(--fg-muted)", letterSpacing: "0.08em",
-        }}>
+        <div className="px-4 py-10 text-center font-mono text-[0.68rem] text-fg-muted tracking-[0.08em]">
           No parts detected.
         </div>
       )}
@@ -263,75 +223,25 @@ export default function PartsList({ file, selectedIndex, onSelectPart }: {
 
   return (
     <>
-      <style>{`
-        @keyframes dotPulse {
-          0%,100%{opacity:0.25;transform:scale(0.7)} 50%{opacity:1;transform:scale(1.3)}
-        }
-        @keyframes shimmerRow {
-          0%,100%{opacity:0.3} 50%{opacity:0.6}
-        }
-        @keyframes modalFadeIn {
-          from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)}
-        }
-        @keyframes backdropIn {
-          from{opacity:0} to{opacity:1}
-        }
-        .hierarchy-btn:hover {
-          color: var(--fg) !important;
-          border-color: var(--border-mid) !important;
-        }
-      `}</style>
-
-      <div style={{
-        flex: 1, display: "flex", flexDirection: "column",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--r-sm)",
-        overflow: "hidden",
-        background: "var(--bg-elevated)",
-        minHeight: 0,
-      }}>
+      <div className="flex-1 flex flex-col border border-border rounded-sm overflow-hidden bg-elevated min-h-0">
         {/* Header — clickable to open modal */}
         <button
-          className="hierarchy-btn"
+          className={`flex items-center justify-between p-[0.55rem_0.875rem] border-b border-border shrink-0 border-x-0 border-t-0 rounded-none w-full bg-[rgba(124,58,237,0.04)] transition-colors duration-[150ms] hover:bg-[rgba(124,58,237,0.07)] ${loading ? "cursor-default" : "cursor-pointer"}`}
           onClick={() => !loading && setModalOpen(true)}
           disabled={loading}
-          style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "0.55rem 0.875rem",
-            background: "rgba(124,58,237,0.04)",
-            borderBottom: "1px solid var(--border)",
-            flexShrink: 0,
-            cursor: loading ? "default" : "pointer",
-            border: "none",
-            borderRadius: 0,
-            width: "100%",
-            transition: "background 0.15s",
-          }}
         >
-          <span style={{
-            fontFamily: "var(--font-mono)", fontSize: "0.62rem", fontWeight: 600,
-            letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--fg-sub)",
-            display: "flex", alignItems: "center", gap: "6px",
-          }}>
+          <span className="font-mono text-[0.62rem] font-semibold tracking-[0.12em] uppercase text-fg-sub flex items-center gap-[6px]">
             Hierarchy
             {!loading && parts && (
-              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-50">
                 <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
                 <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
               </svg>
             )}
           </span>
-          <span style={{
-            fontFamily: "var(--font-mono)", fontSize: "0.58rem", letterSpacing: "0.08em",
-            color: loading ? "var(--fg-muted)" : error ? "var(--error)" : "var(--lime)",
-            display: "flex", alignItems: "center", gap: "5px",
-          }}>
+          <span className={`font-mono text-[0.58rem] tracking-[0.08em] flex items-center gap-[5px] ${loading ? "text-fg-muted" : error ? "text-error" : "text-lime"}`}>
             {loading && (
-              <span style={{
-                display: "inline-block", width: "5px", height: "5px", borderRadius: "50%",
-                background: "var(--violet)",
-                animation: "dotPulse 1.1s ease-in-out infinite",
-              }} />
+              <span className="inline-block w-[5px] h-[5px] rounded-full bg-violet animate-[dotPulse_1.1s_ease-in-out_infinite]" />
             )}
             {loading ? "Scanning…" : error ? "Error" : `${count} part${count !== 1 ? "s" : ""}`}
           </span>
@@ -351,72 +261,25 @@ export default function PartsList({ file, selectedIndex, onSelectPart }: {
       {modalOpen && (
         <div
           onClick={() => setModalOpen(false)}
-          style={{
-            position: "fixed", inset: 0, zIndex: 1000,
-            background: "rgba(5,5,10,0.85)",
-            backdropFilter: "blur(6px)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            padding: "1rem",
-            animation: "backdropIn 0.2s ease",
-          }}
+          className="fixed inset-0 z-[1000] bg-[rgba(5,5,10,0.85)] backdrop-blur-[6px] flex items-center justify-center p-4 animate-[backdropIn_0.2s_ease]"
         >
           <div
             onClick={e => e.stopPropagation()}
-            style={{
-              width: "min(680px, 100%)",
-              maxHeight: "min(82dvh, 900px)",
-              display: "flex",
-              flexDirection: "column",
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--border-mid)",
-              borderRadius: "var(--r-md)",
-              overflow: "hidden",
-              boxShadow: "0 0 0 1px rgba(124,58,237,0.1), 0 32px 80px rgba(0,0,0,0.7), 0 0 60px rgba(124,58,237,0.08)",
-              animation: "modalFadeIn 0.22s var(--ease-expo)",
-            }}
+            className="w-[min(680px,100%)] max-h-[min(82dvh,900px)] flex flex-col bg-elevated border border-border-mid rounded-md overflow-hidden shadow-[0_0_0_1px_rgba(124,58,237,0.1),0_32px_80px_rgba(0,0,0,0.7),0_0_60px_rgba(124,58,237,0.08)] animate-[modalFadeIn_0.22s_var(--ease-expo)]"
           >
             {/* Modal header */}
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "0.875rem 1.25rem",
-              borderBottom: "1px solid var(--border)",
-              background: "rgba(124,58,237,0.05)",
-              flexShrink: 0,
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                <span style={{
-                  fontFamily: "var(--font-mono)", fontSize: "0.62rem", fontWeight: 700,
-                  letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--fg-sub)",
-                }}>
+            <div className="flex items-center justify-between p-[0.875rem_1.25rem] border-b border-border bg-[rgba(124,58,237,0.05)] shrink-0">
+              <div className="flex items-center gap-[0.75rem]">
+                <span className="font-mono text-[0.62rem] font-bold tracking-[0.14em] uppercase text-fg-sub">
                   Parts Hierarchy
                 </span>
-                <span style={{
-                  fontFamily: "var(--font-mono)", fontSize: "0.58rem",
-                  color: "var(--lime)",
-                  background: "var(--lime-dim)",
-                  border: "1px solid rgba(163,230,53,0.25)",
-                  borderRadius: "var(--r-xs)",
-                  padding: "1px 7px",
-                  letterSpacing: "0.08em",
-                }}>
+                <span className="font-mono text-[0.58rem] text-lime bg-lime-dim border border-[rgba(163,230,53,0.25)] rounded-xs p-[1px_7px] tracking-[0.08em]">
                   {count} part{count !== 1 ? "s" : ""}
                 </span>
               </div>
               <button
                 onClick={() => setModalOpen(false)}
-                style={{
-                  background: "var(--bg-surface)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "var(--r-xs)",
-                  color: "var(--fg-sub)",
-                  width: "28px", height: "28px",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "pointer",
-                  fontSize: "0.8rem",
-                  lineHeight: 1,
-                  transition: "all 0.12s",
-                  flexShrink: 0,
-                }}
+                className="bg-surface border border-border rounded-xs text-fg-sub w-[28px] h-[28px] flex items-center justify-center cursor-pointer text-[0.8rem] leading-none transition-all duration-[120ms] shrink-0"
                 aria-label="Close"
               >
                 ✕
@@ -424,16 +287,8 @@ export default function PartsList({ file, selectedIndex, onSelectPart }: {
             </div>
 
             {/* Hint */}
-            <div style={{
-              padding: "0.5rem 1.25rem",
-              borderBottom: "1px solid rgba(124,58,237,0.06)",
-              flexShrink: 0,
-              background: "rgba(124,58,237,0.02)",
-            }}>
-              <span style={{
-                fontFamily: "var(--font-mono)", fontSize: "0.58rem",
-                color: "var(--fg-muted)", letterSpacing: "0.06em",
-              }}>
+            <div className="p-[0.5rem_1.25rem] border-b border-[rgba(124,58,237,0.06)] shrink-0 bg-[rgba(124,58,237,0.02)]">
+              <span className="font-mono text-[0.58rem] text-fg-muted tracking-[0.06em]">
                 Click a part to select it and close
               </span>
             </div>
