@@ -11,6 +11,12 @@ elif os.path.exists("/usr/lib/freecad/lib"):
     sys.path.insert(0, "/usr/lib/freecad/lib")
 elif os.path.exists("/usr/lib/freecad-python3/lib"):
     sys.path.insert(0, "/usr/lib/freecad-python3/lib")
+else:
+    import glob as _glob
+    for _p in sorted(_glob.glob("/nix/store/*freecad*/lib"), reverse=True):
+        if os.path.exists(os.path.join(_p, "FreeCAD.so")):
+            sys.path.insert(0, _p)
+            break
 
 def get_shape_type(shape):
     t = shape.ShapeType
