@@ -2,8 +2,15 @@ import sys
 import json
 import os
 
-# Add FreeCAD lib to path when running via FreeCAD's python.exe
-sys.path.insert(0, "C:/Program Files/FreeCAD 1.1/lib")
+# Add FreeCAD lib to path when running via FreeCAD's python.exe on Windows
+if sys.platform == "win32":
+    win_path = "C:/Program Files/FreeCAD 1.1/lib"
+    if os.path.exists(win_path):
+        sys.path.insert(0, win_path)
+elif os.path.exists("/usr/lib/freecad/lib"):
+    sys.path.insert(0, "/usr/lib/freecad/lib")
+elif os.path.exists("/usr/lib/freecad-python3/lib"):
+    sys.path.insert(0, "/usr/lib/freecad-python3/lib")
 
 def get_shape_type(shape):
     t = shape.ShapeType

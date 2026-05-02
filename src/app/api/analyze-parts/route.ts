@@ -4,7 +4,7 @@ import { writeFile, unlink } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 
-const FREECAD_PYTHON = "C:\\Program Files\\FreeCAD 1.1\\bin\\python.exe";
+const FREECAD_PYTHON = process.env.FREECAD_PYTHON || (process.platform === "win32" ? "C:\\Program Files\\FreeCAD 1.1\\bin\\python.exe" : "python3");
 const SCRIPT_PATH = join(process.cwd(), "scripts", "extract_parts.py");
 
 export async function POST(req: NextRequest) {
