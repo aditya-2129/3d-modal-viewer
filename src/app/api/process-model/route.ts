@@ -18,6 +18,8 @@ function resolveFreeCADPython(): string {
   if (process.platform === "win32") return "C:\\Program Files\\FreeCAD 1.1\\bin\\python.exe";
   const snapPy = "/snap/freecad/current/bin/python3";
   if (existsSync(snapPy)) return snapPy;
+  const ubuntuPy = "/usr/bin/python3";
+  if (existsSync(ubuntuPy)) return ubuntuPy;
   return "python3";
 }
 

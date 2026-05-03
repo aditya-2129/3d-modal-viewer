@@ -1,8 +1,9 @@
 [phases.setup]
-nixPkgs = ["nodejs", "python3", "python3Packages.pip", "freecad"]
+nixPkgs = ["nodejs"]
+aptPkgs = ["freecad", "python3-pip"]
 
 [phases.install]
-cmds = ["npm install", "python3 -m pip install trimesh --break-system-packages"]
+cmds = ["npm install", "/usr/bin/python3 -m pip install trimesh --break-system-packages"]
 
 [phases.build]
 cmds = ["npm run build"]
