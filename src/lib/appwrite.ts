@@ -9,11 +9,11 @@ const databases = new Databases(client);
 
 /** Redirect to Google OAuth */
 function loginWithGoogle() {
-  account.createOAuth2Session({
-    provider: OAuthProvider.Google,
-    success: window.location.origin,
-    failure: window.location.origin,
-  });
+  account.createOAuth2Session(
+    OAuthProvider.Google,
+    `${window.location.origin}/dashboard`,
+    `${window.location.origin}/login`
+  );
 }
 
 /** Get current logged-in user (or null) */

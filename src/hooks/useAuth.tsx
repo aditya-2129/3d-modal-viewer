@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, createContext, useContext } from "react";
 import { getUser } from "@/lib/appwrite";
 import type { Models } from "appwrite";
 
@@ -9,7 +9,9 @@ interface AuthState {
   loading: boolean;
 }
 
-export function useAuth(): AuthState {
+const AuthContext = createContext<AuthState>({ user: null, loading: true });
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Models.User<Models.Preferences> | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -20,5 +22,13 @@ export function useAuth(): AuthState {
     });
   }, []);
 
-  return { user, loading };
+  return (
+    <AuthContext.Provider value={{ user, loading }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth(): AuthState {
+  return useContext(AuthContext);
 }

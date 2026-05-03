@@ -86,15 +86,29 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <button
-            onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-violet to-[#6d28d9] text-white border-none px-4 py-2.5 rounded-sm font-display font-bold text-[0.82rem] cursor-pointer transition-all duration-snap ease-expo hover:-translate-y-0.5 hover:shadow-[0_8px_24px_var(--color-violet-glow)] active:scale-[0.97]"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            New Project
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/viewer"
+              className="flex items-center gap-2 bg-surface text-fg-sub border border-border px-4 py-2.5 rounded-sm font-display font-bold text-[0.82rem] cursor-pointer transition-all duration-snap ease-expo hover:text-fg hover:border-border-strong hover:bg-violet-dim no-underline active:scale-[0.97]"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                <polyline points="2 17 12 22 22 17"/>
+                <polyline points="2 12 12 17 22 12"/>
+              </svg>
+              Quick Analysis
+            </Link>
+            
+            <button
+              onClick={() => setModalOpen(true)}
+              className="flex items-center gap-2 bg-gradient-to-r from-violet to-[#6d28d9] text-white border-none px-4 py-2.5 rounded-sm font-display font-bold text-[0.82rem] cursor-pointer transition-all duration-snap ease-expo hover:-translate-y-0.5 hover:shadow-[0_8px_24px_var(--color-violet-glow)] active:scale-[0.97]"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              New Project
+            </button>
+          </div>
         </div>
 
         {/* States */}
