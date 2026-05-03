@@ -272,24 +272,51 @@ function AxisOverlay({ quatRef }: { quatRef: React.RefObject<THREE.Quaternion> }
   );
 }
 
+function checkWebGL(): boolean {
+  try {
+    const canvas = document.createElement("canvas");
+    return !!(
+      canvas.getContext("webgl2") ||
+      canvas.getContext("webgl") ||
+      canvas.getContext("experimental-webgl")
+    );
+  } catch {
+    return false;
+  }
+}
+
 export default function ModelViewer({ file, selectedIndices }: ModelViewerProps) {
   const quatRef = useRef(new THREE.Quaternion());
   const [resetToken, setResetToken] = useState(0);
   const [isPanMode, setIsPanMode] = useState(false);
   const [isTouch, setIsTouch] = useState(false);
+  const [webglAvailable, setWebglAvailable] = useState(true);
 
   useEffect(() => {
     setIsTouch('ontouchstart' in window || navigator.maxTouchPoints > 0);
+    setWebglAvailable(checkWebGL());
   }, []);
 
   const handleReset = () => setResetToken(t => t + 1);
+
+  if (!webglAvailable) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-void">
+        <div className="text-center text-[#fca5a5] bg-[rgba(20,20,20,0.9)] p-8 rounded-xl border border-[#7f1d1d] max-w-sm">
+          <h3 className="font-semibold mb-2">WebGL Not Available</h3>
+          <p className="text-sm text-[#a1a1aa] mb-3">Your browser or GPU driver does not support WebGL.</p>
+          <p className="text-xs text-[#71717a]">On Linux, try launching Chrome with <code className="bg-[#1a1a1a] px-1 rounded">--enable-unsafe-swiftshader</code> or enable hardware acceleration in browser settings.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full relative bg-void">
       <Canvas
         shadows={{ type: THREE.PCFShadowMap }}
         camera={{ position: [100, 100, 100], fov: 45, near: 0.1, far: 100000 }}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
+        gl={{ antialias: true, powerPreference: "default", failIfMajorPerformanceCaveat: false }}
         onCreated={({ gl }) => {
           const canvas = gl.domElement;
           canvas.addEventListener("webglcontextlost", (e) => {
