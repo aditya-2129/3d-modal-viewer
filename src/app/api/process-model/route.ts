@@ -18,13 +18,6 @@ function resolveFreeCADPython(): string {
   if (process.platform === "win32") return "C:\\Program Files\\FreeCAD 1.1\\bin\\python.exe";
   const snapPy = "/snap/freecad/current/bin/python3";
   if (existsSync(snapPy)) return snapPy;
-  try {
-    const { globSync } = require("glob");
-    for (const pattern of ["/nix/store/*freecad*/bin/python3", "/nix/store/*freecad*/bin/python"]) {
-      const matches: string[] = globSync(pattern).sort().reverse();
-      if (matches.length) return matches[0];
-    }
-  } catch { /* fall through */ }
   return "python3";
 }
 
