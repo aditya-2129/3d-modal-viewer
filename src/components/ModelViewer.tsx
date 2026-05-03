@@ -288,6 +288,7 @@ function checkWebGL(): boolean {
 export default function ModelViewer({ file, selectedIndices }: ModelViewerProps) {
   const quatRef = useRef(new THREE.Quaternion());
   const [resetToken, setResetToken] = useState(0);
+  const [canvasKey, setCanvasKey] = useState(0);
   const [isPanMode, setIsPanMode] = useState(false);
   const [isTouch, setIsTouch] = useState(false);
   const [webglAvailable, setWebglAvailable] = useState(true);
@@ -314,17 +315,21 @@ export default function ModelViewer({ file, selectedIndices }: ModelViewerProps)
   return (
     <div className="w-full h-full relative bg-void">
       <Canvas
+        key={canvasKey}
         shadows={{ type: THREE.PCFShadowMap }}
         camera={{ position: [100, 100, 100], fov: 45, near: 0.1, far: 100000 }}
         gl={{ antialias: true, powerPreference: "default", failIfMajorPerformanceCaveat: false }}
         onCreated={({ gl }) => {
           const canvas = gl.domElement;
+          let restoreTimer: ReturnType<typeof setTimeout>;
           canvas.addEventListener("webglcontextlost", (e) => {
-            e.preventDefault();            // allow restore
-            console.warn("WebGL context lost — waiting for restore…");
+            e.preventDefault();
+            // If the browser doesn't restore within 2 s, force-remount the Canvas
+            restoreTimer = setTimeout(() => setCanvasKey(k => k + 1), 2000);
           });
           canvas.addEventListener("webglcontextrestored", () => {
-            console.info("WebGL context restored.");
+            clearTimeout(restoreTimer);
+            setCanvasKey(k => k + 1);
           });
         }}
       >
