@@ -11,6 +11,8 @@ elif os.path.exists("/usr/lib/freecad/lib"):
     sys.path.insert(0, "/usr/lib/freecad/lib")
 elif os.path.exists("/usr/lib/freecad-python3/lib"):
     sys.path.insert(0, "/usr/lib/freecad-python3/lib")
+elif os.path.exists("/snap/freecad/current/usr/lib"):
+    sys.path.insert(0, "/snap/freecad/current/usr/lib")
 else:
     import glob as _glob
     for _p in sorted(_glob.glob("/nix/store/*freecad*/lib"), reverse=True):

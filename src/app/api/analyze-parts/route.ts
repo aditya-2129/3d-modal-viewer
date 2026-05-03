@@ -1,10 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
 import { spawn } from "child_process";
+import { existsSync } from "fs";
 import { writeFile, unlink } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 
-const FREECAD_PYTHON = process.env.FREECAD_PYTHON || (process.platform === "win32" ? "C:\\Program Files\\FreeCAD 1.1\\bin\\python.exe" : "python3");
+// Snap packages that provide FreeCAD's shared libs at runtime
+const SNAP_LIB_DIRS = [
+  "/snap/freecad/current/usr/lib",
+  "/snap/freecad/current/usr/lib/x86_64-linux-gnu",
+  // Qt6 + xerces live in the kf6-core24 content snap
+  "/snap/kf6-core24/current/usr/lib/x86_64-linux-gnu",
+];
+
+function resolveFreeCADPython(): string {
+  if (process.env.FREECAD_PYTHON) return process.env.FREECAD_PYTHON;
+  if (process.platform === "win32") return "C:\\Program Files\\FreeCAD 1.1\\bin\\python.exe";
+  // Snap install
+  const snapPy = "/snap/freecad/current/bin/python3";
+  if (existsSync(snapPy)) return snapPy;
+  // Nix store — find FreeCAD's own Python so versions match
+  try {
+    const { globSync } = require("glob");
+    for (const pattern of ["/nix/store/*freecad*/bin/python3", "/nix/store/*freecad*/bin/python"]) {
+      const matches: string[] = globSync(pattern).sort().reverse();
+      if (matches.length) return matches[0];
+    }
+  } catch { /* glob unavailable, fall through */ }
+  return "python3";
+}
+
+function buildEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  const extra = SNAP_LIB_DIRS.filter(existsSync).join(":");
+  if (extra) {
+    env.LD_LIBRARY_PATH = env.LD_LIBRARY_PATH ? `${extra}:${env.LD_LIBRARY_PATH}` : extra;
+  }
+  return env;
+}
+
+const FREECAD_PYTHON = resolveFreeCADPython();
 const SCRIPT_PATH = join(process.cwd(), "scripts", "extract_parts.py");
 
 export async function POST(req: NextRequest) {
@@ -33,6 +68,7 @@ function runFreeCAD(filePath: string, outDir: string): Promise<{ parts?: unknown
   return new Promise((resolve) => {
     const proc = spawn(FREECAD_PYTHON, [SCRIPT_PATH, filePath, outDir], {
       timeout: 60000,
+      env: buildEnv(),
     });
 
     let stdout = "";
