@@ -28,11 +28,21 @@ function resolveFreeCADPython(): string {
   return "python3";
 }
 
+const TRIMESH_PATHS = [
+  "/home/aditya/.local/lib/python3.12/site-packages",
+  "/root/.local/lib/python3.12/site-packages",
+  "/usr/local/lib/python3.12/dist-packages",
+].filter(existsSync);
+
 function buildEnv(): NodeJS.ProcessEnv {
   const env = { ...process.env };
   const extra = SNAP_LIB_DIRS.filter(existsSync).join(":");
   if (extra) {
     env.LD_LIBRARY_PATH = env.LD_LIBRARY_PATH ? `${extra}:${env.LD_LIBRARY_PATH}` : extra;
+  }
+  if (TRIMESH_PATHS.length) {
+    const pypath = TRIMESH_PATHS.join(":");
+    env.PYTHONPATH = env.PYTHONPATH ? `${pypath}:${env.PYTHONPATH}` : pypath;
   }
   return env;
 }
