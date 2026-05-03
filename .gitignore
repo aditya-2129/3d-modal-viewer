@@ -50,6 +50,10 @@ next-env.d.ts
 
 /tmp_out/
 
+# Python
+__pycache__/
+*.pyc
+
 # ai skills
 .agents/*
 .claude/*
