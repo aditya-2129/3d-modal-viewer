@@ -20,10 +20,14 @@ else:
             sys.path.insert(0, _p)
             break
 
-# Add trimesh user-install path
-_trimesh_path = os.path.expanduser("~/.local/lib/python3.12/site-packages")
-if os.path.exists(_trimesh_path) and _trimesh_path not in sys.path:
-    sys.path.insert(0, _trimesh_path)
+# Add trimesh — check both the invoking user's home and known absolute paths
+for _trimesh_path in [
+    os.path.expanduser("~/.local/lib/python3.12/site-packages"),
+    "/home/aditya/.local/lib/python3.12/site-packages",
+    "/root/.local/lib/python3.12/site-packages",
+]:
+    if os.path.exists(_trimesh_path) and _trimesh_path not in sys.path:
+        sys.path.insert(0, _trimesh_path)
 
 sys.path.insert(0, os.path.dirname(__file__))
 from extract_parts import (
