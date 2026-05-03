@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { client, loginWithGoogle, getUser, logout } from "@/lib/appwrite";
 import type { Models } from "appwrite";
 
@@ -248,6 +249,14 @@ export default function Home() {
 
       {/* User badge */}
       <div className="absolute top-5 right-5 flex items-center gap-2 bg-surface border border-border rounded-full px-3 py-1.5 z-10">
+        <Link
+          href="/dashboard"
+          className="font-mono text-[0.58rem] text-violet hover:text-fg transition-colors uppercase tracking-wider no-underline"
+          title="Dashboard"
+        >
+          Projects
+        </Link>
+        <span className="text-fg-dim">·</span>
         <span className="font-mono text-[0.65rem] text-fg-sub truncate max-w-[150px]">
           {user.name || user.email}
         </span>

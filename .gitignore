@@ -49,3 +49,10 @@ next-env.d.ts
 
 
 /tmp_out/
+
+# ai skills
+.agents/*
+.claude/*
+
+# appwrite cli
+.appwrite/

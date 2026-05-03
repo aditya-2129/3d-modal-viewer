@@ -11,7 +11,8 @@ AutoQuotation is a modern, high-performance web application designed for rapid 3
 - **Deep Geometric Analysis**: Automated part extraction and classification using FreeCAD's robust Open Cascade engine.
 - **Stock Shape Detection**: Intelligently classifies parts into Round, Hex, or Rectangular stock based on principal moments of inertia and face analysis.
 - **Part Tree Visualization**: Interactive split-pane view showing the hierarchical structure of complex assemblies.
-- **Cloud Integration**: Powered by Appwrite for secure file storage and metadata management.
+- **Project Dashboard**: Multi-project system with create, list, and navigate flows. Auth-guarded with document-level Appwrite permissions.
+- **Cloud Integration**: Powered by Appwrite for authentication (Google OAuth), file storage, and metadata management.
 - **Deployment Ready**: Optimized for Coolify/Nixpacks with custom configuration.
 
 ## 🏗️ Architecture
@@ -61,10 +62,25 @@ FREECAD_PYTHON=C:\Program Files\FreeCAD 1.1\bin\python.exe  # Update path for Li
 ## 📁 Project Structure
 
 - `src/app/` — Next.js pages and API routes.
-- `src/components/` — Reusable React components (3D Viewer, Parts List, etc.).
+  - `(protected)/` — Auth-guarded route group (dashboard, project pages).
+- `src/components/` — Reusable React components (3D Viewer, Parts List, Dashboard, etc.).
+- `src/hooks/` — Shared React hooks (`useAuth`).
+- `src/lib/` — Appwrite client, database helpers, constants.
 - `scripts/` — Python scripts for FreeCAD geometry processing.
 - `public/lib/` — WASM binaries for `occt-import-js`.
 - `freecad_docs/` — Technical documentation for the FreeCAD API integration.
+
+## 🧪 Testing
+
+Tests use **Vitest** + **React Testing Library**.
+
+```bash
+# Run all tests
+npm test
+
+# Watch mode
+npm run test:watch
+```
 
 ## 🚢 Deployment
 
@@ -76,6 +92,14 @@ npm run build
 
 # Start production server
 npm run start
+```
+
+### Appwrite Setup
+
+The `appwrite.config.json` defines all collections declaratively. Push to your Appwrite instance with:
+
+```bash
+npx appwrite push tables
 ```
 
 ---
