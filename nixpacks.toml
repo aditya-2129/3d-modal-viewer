@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["nodejs", "python3", "freecad"]
+nixPkgs = ["nodejs", "python3", "freecad", "python3Packages.trimesh"]
 
 [phases.install]
 cmds = ["npm install"]
