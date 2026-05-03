@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { getAnalysis, getProjects } from "@/lib/db";
 
 const ModelViewer = dynamic(() => import("@/components/ModelViewer"), {
   ssr: false,
@@ -26,6 +26,36 @@ const PartsList = dynamic(() => import("@/components/PartsList"), {
   ),
 });
 
+interface BoundingBox {
+  xMin: number; yMin: number; zMin: number;
+  xMax: number; yMax: number; zMax: number;
+  xLen: number; yLen: number; zLen: number;
+}
+
+interface Stock {
+  stockShape: "round" | "hex" | "rect";
+  [key: string]: unknown;
+}
+
+interface Part {
+  name: string;
+  type: string;
+  solidCount?: number;
+  boundingBox: BoundingBox | null;
+  stock?: Stock | null;
+  children: Part[];
+  groupKey?: string | null;
+  centerOfMass?: { x: number; y: number; z: number } | null;
+  globalIndex?: number;
+}
+
+type ProcessedModel = {
+  parts: Part[];
+  mapping: { partIndex: number; nodeName: string }[];
+  meshFileUrl: string;
+  fileName?: string;
+};
+
 interface AnalysisWorkspaceProps {
   projectId?: string;
   projectName?: string;
@@ -35,16 +65,54 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
   const router = useRouter();
   const [view, setView] = useState<"upload" | "analysis">("upload");
   const [dragActive, setDragActive] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [processingError, setProcessingError] = useState<string | null>(null);
+  const [processedModel, setProcessedModel] = useState<ProcessedModel | null>(null);
   const [selectedIndices, setSelectedIndices] = useState<number[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleSelectPart = (indices: number[] | null) => {
-    if (!indices || indices.length === 0) {
-      setSelectedIndices(null);
-      return;
-    }
+  // On mount: if project has a cached analysis, load it directly
+  useEffect(() => {
+    if (!projectId) return;
+    (async () => {
+      try {
+        const projects = await getProjects();
+        const project = projects.find(p => p.$id === projectId);
+        if (project?.analysisId) {
+          const analysis = await getAnalysis(project.analysisId);
+          setProcessedModel({ ...analysis, fileName: projectName });
+          setView("analysis");
+        }
+      } catch {
+        // No cached analysis — show upload screen
+      }
+    })();
+  }, [projectId, projectName]);
 
+  const processFile = useCallback(async (file: File) => {
+    setProcessing(true);
+    setProcessingError(null);
+    const fd = new FormData();
+    fd.append("file", file);
+    if (projectId) fd.append("projectId", projectId);
+    try {
+      const res = await fetch("/api/process-model", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.error) {
+        setProcessingError(data.error);
+        return;
+      }
+      setProcessedModel({ parts: data.parts, mapping: data.mapping, meshFileUrl: data.meshFileUrl, fileName: file.name });
+      setView("analysis");
+    } catch (e: any) {
+      setProcessingError(e.message ?? "Processing failed");
+    } finally {
+      setProcessing(false);
+    }
+  }, [projectId]);
+
+  const handleSelectPart = (indices: number[] | null) => {
+    if (!indices || indices.length === 0) { setSelectedIndices(null); return; }
     if (
       selectedIndices &&
       selectedIndices.length === indices.length &&
@@ -68,13 +136,12 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
     e.stopPropagation();
     setDragActive(false);
     const f = e.dataTransfer.files?.[0];
-    if (f) {
-      const name = f.name.toLowerCase();
-      if (name.endsWith(".step") || name.endsWith(".stp") || name.endsWith(".iges") || name.endsWith(".igs")) {
-        setFile(f);
-      } else {
-        alert("Please upload a valid CAD file (.step, .stp, .iges, or .igs)");
-      }
+    if (!f) return;
+    const name = f.name.toLowerCase();
+    if (name.endsWith(".step") || name.endsWith(".stp") || name.endsWith(".iges") || name.endsWith(".igs")) {
+      processFile(f);
+    } else {
+      alert("Please upload a valid CAD file (.step, .stp, .iges, or .igs)");
     }
   };
 
@@ -83,7 +150,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
     if (!f) return;
     const name = f.name.toLowerCase();
     if (name.endsWith(".step") || name.endsWith(".stp") || name.endsWith(".iges") || name.endsWith(".igs")) {
-      setFile(f);
+      processFile(f);
     } else {
       alert("Please upload a valid CAD file (.step, .stp, .iges, or .igs)");
       if (inputRef.current) inputRef.current.value = "";
@@ -91,7 +158,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
   };
 
   /* ── ANALYSIS VIEW ── */
-  if (view === "analysis") {
+  if (view === "analysis" && processedModel) {
     return (
       <div className="flex w-screen h-[100dvh] bg-void relative z-[1] overflow-hidden max-md:flex-col">
         {/* Left: Parts sidebar */}
@@ -106,7 +173,9 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
               Parts Tree
             </span>
             <span className="font-mono text-[0.58rem] tracking-[0.1em] uppercase text-fg-muted bg-surface border border-border rounded-xs px-2 py-[2px] max-md:text-[0.55rem] max-md:px-[6px] max-md:max-w-[140px] max-md:overflow-hidden max-md:text-ellipsis max-md:whitespace-nowrap">
-              {file && file.name.length > 20 ? file.name.slice(0, 19) + "…" : file?.name}
+              {processedModel.fileName && processedModel.fileName.length > 20
+                ? processedModel.fileName.slice(0, 19) + "…"
+                : processedModel.fileName}
             </span>
           </div>
 
@@ -123,7 +192,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
               </button>
               <button
                 className="flex-1 flex items-center justify-center gap-[0.4rem] bg-transparent border border-border-mid rounded-xs text-fg-sub px-[0.8rem] py-[0.4rem] font-mono text-[0.62rem] font-medium tracking-[0.1em] uppercase cursor-pointer transition-all duration-snap ease-expo hover:border-violet hover:text-violet hover:bg-violet-dim hover:shadow-[0_0_12px_-4px_var(--color-violet-glow)] active:scale-[0.98]"
-                onClick={() => { setView("upload"); setSelectedIndices(null); }}
+                onClick={() => { setView("upload"); setSelectedIndices(null); setProcessedModel(null); }}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
@@ -141,14 +210,14 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-mono text-[0.73rem] font-medium text-fg truncate max-md:text-[0.7rem]">{file?.name}</div>
+                <div className="font-mono text-[0.73rem] font-medium text-fg truncate max-md:text-[0.7rem]">{processedModel.fileName}</div>
                 <div className="font-mono text-[0.58rem] text-fg-muted tracking-[0.08em] uppercase mt-[2px] max-md:text-[0.55rem]">
-                  {file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · ${file.name.toLowerCase().match(/\.(iges|igs)$/) ? 'IGES' : 'STEP'}` : ""}
+                  {processedModel.parts.length} parts · GLB mesh
                 </div>
               </div>
             </div>
 
-            <PartsList file={file!} selectedIndices={selectedIndices} onSelectPart={handleSelectPart} />
+            <PartsList parts={processedModel.parts} selectedIndices={selectedIndices} onSelectPart={handleSelectPart} />
           </div>
         </section>
 
@@ -171,15 +240,19 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
               data-active={selectedIndices !== null ? "" : undefined}
               className="font-mono text-[0.58rem] tracking-[0.1em] uppercase text-fg-muted bg-surface border border-border rounded-xs px-2 py-[2px] transition-all duration-base data-[active]:text-lime data-[active]:bg-lime-dim data-[active]:border-border-lime data-[active]:shadow-[0_0_8px_var(--color-lime-glow)] max-md:text-[0.55rem] max-md:px-[6px] max-md:max-w-[140px] max-md:overflow-hidden max-md:text-ellipsis max-md:whitespace-nowrap"
             >
-              {selectedIndices !== null 
-                ? `${selectedIndices.length} item${selectedIndices.length !== 1 ? 's' : ''} selected` 
+              {selectedIndices !== null
+                ? `${selectedIndices.length} item${selectedIndices.length !== 1 ? 's' : ''} selected`
                 : "Orbit · Pan · Zoom"}
             </span>
           </div>
 
           <div className="flex-1 flex flex-col p-5 overflow-hidden min-h-0 max-md:p-3 safe-pb">
             <div className="model-preview flex-1 bg-elevated rounded-md border border-border flex items-center justify-center relative overflow-hidden">
-              {file && <ModelViewer file={file} selectedIndices={selectedIndices} />}
+              <ModelViewer
+                meshFileUrl={processedModel.meshFileUrl}
+                mapping={processedModel.mapping}
+                selectedIndices={selectedIndices}
+              />
             </div>
           </div>
         </section>
@@ -192,7 +265,15 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
     <main className="main-container flex-1 flex flex-col items-center justify-center p-8 relative z-[1] min-h-[100dvh] max-md:p-[1.25rem_1rem] max-md:justify-center">
       <div className="background-glow absolute inset-0 pointer-events-none z-[-1] overflow-hidden" />
 
-      {/* Header Actions */}
+      {/* Processing overlay */}
+      {processing && (
+        <div className="fixed inset-0 z-50 bg-[rgba(5,5,10,0.8)] backdrop-blur-sm flex flex-col items-center justify-center gap-4">
+          <div className="w-12 h-12 rounded-full border-[3px] border-[rgba(124,58,237,0.2)] border-t-violet animate-spin" />
+          <p className="font-mono text-[0.8rem] text-fg-sub">Processing model on server…</p>
+          <p className="font-mono text-[0.65rem] text-fg-muted">This may take up to 2 minutes</p>
+        </div>
+      )}
+
       <div className="absolute top-5 left-5 z-10">
         <button
           onClick={() => router.push("/dashboard")}
@@ -230,6 +311,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
             zIndex: -1
           }}
         />
+
         <div
           data-active={dragActive ? "" : undefined}
           className="drop-zone border border-border-mid rounded-lg p-[2.25rem_1.5rem] cursor-pointer bg-[rgba(124,58,237,0.04)] flex flex-col items-center gap-3 relative transition-all duration-base ease-expo hover:border-border-strong hover:bg-violet-dim hover:-translate-y-0.5 hover:shadow-[0_8px_40px_var(--color-violet-glow)] data-[active]:border-lime data-[active]:bg-lime-dim data-[active]:shadow-[0_0_0_3px_var(--color-lime-glow),0_12px_40px_var(--color-lime-glow)] data-[active]:scale-[1.01] max-md:p-[2rem_1.25rem] max-md:gap-[0.65rem] max-md:transform-none"
@@ -240,7 +322,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
           onClick={() => inputRef.current?.click()}
           role="button"
           tabIndex={0}
-          aria-label="Upload STEP file"
+          aria-label="Upload CAD file"
         >
           <div className="upload-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -249,28 +331,15 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
               <line x1="12" y1="22.08" x2="12" y2="12"/>
             </svg>
           </div>
-
-          {file ? (
-            <div className="flex flex-col items-center gap-1">
-              <span className="font-mono text-[0.82rem] font-medium text-lime max-w-[min(300px,80vw)] overflow-hidden text-ellipsis whitespace-nowrap">{file.name}</span>
-              <span className="font-mono text-[0.62rem] text-fg-muted tracking-[0.01em] uppercase">{(file.size / 1024 / 1024).toFixed(2)} MB · Ready</span>
-            </div>
-          ) : (
-            <>
-              <span>Drop your CAD file here</span>
-              <small>Accepts .step · .stp · .iges · .igs</small>
-            </>
-          )}
+          <span>Drop your CAD file here</span>
+          <small>Accepts .step · .stp · .iges · .igs</small>
         </div>
 
-        <button
-          className="btn-upload"
-          disabled={!file}
-          onClick={() => file && setView("analysis")}
-          aria-label={file ? "Analyze the uploaded model" : "Upload a file first"}
-        >
-          {file ? "Analyze Model →" : "Select a File to Continue"}
-        </button>
+        {processingError && (
+          <div className="mt-3 p-[0.6rem_0.875rem] font-mono text-[0.68rem] text-error bg-[rgba(248,113,113,0.06)] border border-[rgba(248,113,113,0.20)] rounded-xs leading-relaxed">
+            {processingError}
+          </div>
+        )}
 
         <p className="upload-footer">AutoQuotation · v2 · STEP & IGES Analyzer</p>
       </div>

@@ -1,6 +1,6 @@
 import { ID, Permission, Role, Query } from "appwrite";
 import { databases } from "./appwrite";
-import { DATABASE_ID, PROJECTS_COLLECTION_ID } from "./constants";
+import { DATABASE_ID, PROJECTS_COLLECTION_ID, ANALYSIS_COLLECTION_ID } from "./constants";
 
 export interface Project {
   $id: string;
@@ -8,12 +8,22 @@ export interface Project {
   userId: string;
   createdAt: string;
   updatedAt: string;
+  analysisId?: string;
 }
 
 /**
  * Fetch all projects for the current user.
  * Document-level permissions ensure only the user's own projects are returned.
  */
+export async function getAnalysis(analysisId: string) {
+  const doc = await databases.getDocument(DATABASE_ID, ANALYSIS_COLLECTION_ID, analysisId);
+  return {
+    parts: JSON.parse(doc.parts_data as string),
+    mapping: JSON.parse(doc.mapping as string),
+    meshFileUrl: doc.glb_url as string,
+  };
+}
+
 export async function getProjects(): Promise<Project[]> {
   const response = await databases.listDocuments(
     DATABASE_ID,

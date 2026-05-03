@@ -1,14 +1,11 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
-import { OrbitControls, Html, Environment } from "@react-three/drei";
+import { OrbitControls, Html, Environment, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
-// @ts-ignore
-import occtimportjs from "occt-import-js";
 
 // Suppress THREE.Clock deprecation warning from @react-three/fiber internals.
-// R3F v9 still uses THREE.Clock; this is not fixable from our side.
 const _origWarn = console.warn;
 console.warn = (...args: unknown[]) => {
   if (typeof args[0] === "string" && args[0].includes("THREE.Clock")) return;
@@ -16,7 +13,8 @@ console.warn = (...args: unknown[]) => {
 };
 
 interface ModelViewerProps {
-  file: File;
+  meshFileUrl: string;
+  mapping: { partIndex: number; nodeName: string }[];
   selectedIndices?: number[] | null;
 }
 
@@ -51,8 +49,6 @@ function FitCamera({ geometries, resetToken }: { geometries: THREE.BufferGeometr
 
     const fov = (camera as THREE.PerspectiveCamera).fov * (Math.PI / 180);
     let distance = (maxDim / 2 / Math.tan(fov / 2)) * 2;
-    
-    // Clamp to prevent camera from disappearing to infinity or zero
     distance = Math.max(distance, 0.1);
     distance = Math.min(distance, 100000);
 
@@ -79,130 +75,49 @@ function FitCamera({ geometries, resetToken }: { geometries: THREE.BufferGeometr
   return null;
 }
 
-const STEPModel = ({ file, selectedIndices, resetToken }: { file: File; selectedIndices?: number[] | null; resetToken: number }) => {
-  const [geometries, setGeometries] = useState<THREE.BufferGeometry[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<string>("Initializing...");
-  const [retryCount, setRetryCount] = useState<number>(0);
+const GLBModel = ({
+  meshFileUrl,
+  mapping,
+  selectedIndices,
+  resetToken,
+}: {
+  meshFileUrl: string;
+  mapping: { partIndex: number; nodeName: string }[];
+  selectedIndices?: number[] | null;
+  resetToken: number;
+}) => {
+  const { scene } = useGLTF(meshFileUrl);
+
+  const visibleNames = useMemo(() => {
+    if (!selectedIndices || selectedIndices.length === 0) return null;
+    const names = new Set<string>();
+    selectedIndices.forEach(idx => {
+      const entry = mapping.find(m => m.partIndex === idx);
+      if (entry) names.add(entry.nodeName);
+    });
+    return names;
+  }, [selectedIndices, mapping]);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadModel = async () => {
-      try {
-        setProgress("Loading CAD Engine...");
-        const occt = await occtimportjs({ locateFile: (path: string) => `/lib/${path}` });
-
-        if (!isMounted) return;
-
-        const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-        const isIges = ext === 'iges' || ext === 'igs';
-        const formatLabel = isIges ? 'IGES' : 'STEP';
-
-        setProgress(`Reading ${formatLabel} file...`);
-
-        const buffer = await file.arrayBuffer();
-        const uint8Array = new Uint8Array(buffer);
-
-        setProgress("Tessellating 3D Geometry...");
-        const result = isIges
-          ? occt.ReadIgesFile(uint8Array, null)
-          : occt.ReadStepFile(uint8Array, null);
-
-        if (!result?.success) {
-          throw new Error("CAD processing failed. The file might be invalid or too complex.");
-        }
-
-        const newGeometries = result.meshes.map((mesh: any) => {
-          const geometry = new THREE.BufferGeometry();
-
-          if (mesh.attributes?.position?.array) {
-            geometry.setAttribute("position", new THREE.Float32BufferAttribute(mesh.attributes.position.array, 3));
-          }
-          if (mesh.attributes?.normal?.array) {
-            geometry.setAttribute("normal", new THREE.Float32BufferAttribute(mesh.attributes.normal.array, 3));
-          } else {
-            geometry.computeVertexNormals();
-          }
-          if (mesh.index?.array) {
-            geometry.setIndex(new THREE.Uint32BufferAttribute(mesh.index.array, 1));
-          }
-
-          geometry.computeBoundingBox();
-          geometry.computeBoundingSphere();
-          return geometry;
-        });
-
-        if (isMounted) {
-          setGeometries(newGeometries);
-          setError(null);
-        }
-      } catch (err) {
-        if (isMounted) setError(err instanceof Error ? err.message : "Unknown CAD processing error");
+    scene.traverse((obj) => {
+      if (obj.type === "Mesh" || obj.type === "Group") {
+        (obj as THREE.Mesh).visible = visibleNames === null || visibleNames.has(obj.name);
       }
-    };
+    });
+  }, [scene, visibleNames]);
 
-    loadModel();
-    return () => { 
-      isMounted = false;
-      // Explicitly dispose of geometries to free memory on mobile
-      geometries.forEach(geo => geo.dispose());
-    };
-  }, [file, retryCount]); // Include retryCount to trigger reload on retry
-
-
-  if (error) {
-    return (
-      <Html center>
-        <div className="text-[#fca5a5] text-center bg-[rgba(20,20,20,0.9)] p-6 rounded-xl border border-[#7f1d1d] w-[300px]">
-          <h3 className="mb-2 font-semibold">Render Failed</h3>
-          <p className="text-[0.875rem] mb-4 text-opacity-80">{error}</p>
-          <button 
-            onClick={() => {
-              setError(null);
-              setRetryCount(c => c + 1);
-            }}
-            className="px-4 py-1.5 bg-[#7f1d1d] hover:bg-[#991b1b] text-white text-sm rounded transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      </Html>
-    );
-  }
-
-  if (geometries.length === 0) {
-    return (
-      <Html center>
-        <div className="text-violet text-center min-w-[200px]">
-          <div className="w-10 h-10 mx-auto mb-4 rounded-full border-[3px] border-[rgba(168,85,247,0.2)] border-t-violet animate-spin" />
-          <p className="text-[0.9rem] text-[#a1a1aa]">{progress}</p>
-        </div>
-      </Html>
-    );
-  }
-
-  const visibleGeometries = selectedIndices != null && selectedIndices.length > 0
-    ? selectedIndices.map(i => geometries[i]).filter(Boolean)
-    : geometries;
+  const geometries = useMemo(() => {
+    const geos: THREE.BufferGeometry[] = [];
+    scene.traverse((obj: any) => {
+      if (obj.isMesh && obj.geometry) geos.push(obj.geometry);
+    });
+    return geos;
+  }, [scene]);
 
   return (
     <>
-      <FitCamera geometries={visibleGeometries} resetToken={resetToken} />
-      <group>
-        {geometries.map((geo, idx) => {
-          const hidden =
-            selectedIndices != null &&
-            selectedIndices.length > 0 &&
-            !selectedIndices.includes(idx);
-            
-          return (
-            <mesh key={idx} geometry={geo} castShadow receiveShadow visible={!hidden}>
-              <meshStandardMaterial color="#8b87a8" metalness={0.6} roughness={0.4} />
-            </mesh>
-          );
-        })}
-      </group>
+      <FitCamera geometries={geometries} resetToken={resetToken} />
+      <primitive object={scene} />
     </>
   );
 };
@@ -285,7 +200,7 @@ function checkWebGL(): boolean {
   }
 }
 
-export default function ModelViewer({ file, selectedIndices }: ModelViewerProps) {
+export default function ModelViewer({ meshFileUrl, mapping, selectedIndices }: ModelViewerProps) {
   const quatRef = useRef(new THREE.Quaternion());
   const [resetToken, setResetToken] = useState(0);
   const [canvasKey, setCanvasKey] = useState(0);
@@ -324,7 +239,6 @@ export default function ModelViewer({ file, selectedIndices }: ModelViewerProps)
           let restoreTimer: ReturnType<typeof setTimeout>;
           canvas.addEventListener("webglcontextlost", (e) => {
             e.preventDefault();
-            // If the browser doesn't restore within 2 s, force-remount the Canvas
             restoreTimer = setTimeout(() => setCanvasKey(k => k + 1), 2000);
           });
           canvas.addEventListener("webglcontextrestored", () => {
@@ -339,12 +253,17 @@ export default function ModelViewer({ file, selectedIndices }: ModelViewerProps)
         <directionalLight position={[-10, -5, -10]} intensity={0.3} />
         <Environment preset="city" />
 
-        <React.Suspense fallback={<Html center><p className="text-[#71717a]">Initializing Scene...</p></Html>}>
-          <STEPModel file={file} selectedIndices={selectedIndices} resetToken={resetToken} />
+        <React.Suspense fallback={<Html center><p className="text-[#71717a]">Loading 3D model…</p></Html>}>
+          <GLBModel
+            meshFileUrl={meshFileUrl}
+            mapping={mapping}
+            selectedIndices={selectedIndices}
+            resetToken={resetToken}
+          />
         </React.Suspense>
 
-        <OrbitControls 
-          makeDefault 
+        <OrbitControls
+          makeDefault
           enableDamping
           dampingFactor={0.08}
           screenSpacePanning={true}
@@ -363,7 +282,6 @@ export default function ModelViewer({ file, selectedIndices }: ModelViewerProps)
 
       <AxisOverlay quatRef={quatRef} />
 
-      {/* Responsive Legend */}
       <div className="absolute bottom-5 left-5 text-[#8b87a8] font-mono text-[0.6rem] uppercase tracking-wider pointer-events-none bg-void/60 border border-border-mid px-3 py-2 rounded-sm backdrop-blur-md max-md:hidden">
         <span className="flex items-center gap-4">
           <span className="flex items-center gap-1.5 opacity-80"><span className="text-violet">L:</span> Rotate</span>
@@ -379,13 +297,12 @@ export default function ModelViewer({ file, selectedIndices }: ModelViewerProps)
         </span>
       </div>
 
-      {/* Floating Controls */}
       <div className="absolute bottom-5 right-5 flex flex-col gap-2">
         <button
           onClick={() => setIsPanMode(!isPanMode)}
           className={`w-10 h-10 rounded-sm border flex items-center justify-center transition-all duration-base backdrop-blur-md ${
-            isPanMode 
-              ? 'bg-violet-dim border-violet text-violet shadow-[0_0_12px_var(--color-violet-glow)]' 
+            isPanMode
+              ? 'bg-violet-dim border-violet text-violet shadow-[0_0_12px_var(--color-violet-glow)]'
               : 'bg-void/60 border-border-mid text-fg-sub hover:border-violet hover:text-violet'
           }`}
           title={isPanMode ? "Switch to Rotate" : "Switch to Pan"}

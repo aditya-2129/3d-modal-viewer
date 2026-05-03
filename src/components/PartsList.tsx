@@ -311,25 +311,14 @@ function PartsListContent({ parts, loading, error, selectedIndices, onSelect, on
   );
 }
 
-export default function PartsList({ file, selectedIndices, onSelectPart }: {
-  file: File;
+export default function PartsList({ parts, selectedIndices, onSelectPart }: {
+  parts: Part[];
   selectedIndices: number[] | null;
   onSelectPart: (indices: number[] | null) => void;
 }) {
-  const [parts, setParts] = useState<Part[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [error] = useState<string | null>(null);
+  const loading = false;
   const [modalOpen, setModalOpen] = useState(false);
-
-  useEffect(() => {
-    const fd = new FormData();
-    fd.append("file", file);
-    fetch("/api/analyze-parts", { method: "POST", body: fd })
-      .then(r => r.json())
-      .then(data => { if (data.error) setError(data.error); else setParts(data.parts); })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [file]);
 
   const groups = useMemo(() => parts ? groupSiblings(parts) : [], [parts]);
   const totalCount = parts?.length ?? 0;
