@@ -99,9 +99,13 @@ const GLBModel = ({
   }, [selectedIndices, mapping]);
 
   useEffect(() => {
+    if (visibleNames === null) {
+      scene.traverse((obj) => { obj.visible = true; });
+      return;
+    }
     scene.traverse((obj) => {
-      if (obj.type === "Mesh" || obj.type === "Group") {
-        (obj as THREE.Mesh).visible = visibleNames === null || visibleNames.has(obj.name);
+      if (obj.name.startsWith("part_")) {
+        obj.visible = visibleNames.has(obj.name);
       }
     });
   }, [scene, visibleNames]);
