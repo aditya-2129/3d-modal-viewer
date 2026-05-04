@@ -4,7 +4,7 @@
 redis-server --requirepass securepassword123 --daemonize yes
 
 # Wait for Redis to be ready
-until redis-cli -a securepassword123 ping; do
+until redis-cli -h 127.0.0.1 -a securepassword123 ping; do
   echo "Waiting for Redis..."
   sleep 1
 done
