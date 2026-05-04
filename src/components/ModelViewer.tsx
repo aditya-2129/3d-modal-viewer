@@ -18,6 +18,11 @@ interface ModelViewerProps {
   selectedIndices?: number[] | null;
 }
 
+interface OrbitControlsLike {
+  target: THREE.Vector3;
+  update: () => void;
+}
+
 function FitCamera({ geometries, resetToken }: { geometries: THREE.BufferGeometry[]; resetToken: number }) {
   const { camera, controls } = useThree();
 
@@ -67,8 +72,9 @@ function FitCamera({ geometries, resetToken }: { geometries: THREE.BufferGeometr
     camera.lookAt(center);
 
     if (controls) {
-      (controls as any).target.copy(center);
-      (controls as any).update();
+      const oc = controls as OrbitControlsLike;
+      oc.target.copy(center);
+      oc.update();
     }
   }, [geometries, camera, controls, resetToken]);
 

@@ -254,10 +254,8 @@ function PartRow({ group, depth, selectedIndices, onSelect, onSelectAndClose, ex
   );
 }
 
-function PartsListContent({ parts, loading, error, selectedIndices, onSelect, onSelectAndClose }: {
+function PartsListContent({ parts, selectedIndices, onSelect, onSelectAndClose }: {
   parts: Part[] | null;
-  loading: boolean;
-  error: string | null;
   selectedIndices: number[] | null;
   onSelect: (indices: number[]) => void;
   onSelectAndClose?: (indices: number[]) => void;
@@ -267,25 +265,6 @@ function PartsListContent({ parts, loading, error, selectedIndices, onSelect, on
 
   return (
     <div className="flex-1 overflow-y-auto min-h-0">
-      {loading && (
-        <div className="p-[1rem_0.875rem] flex flex-col gap-[6px]">
-          {[100, 80, 90, 70, 85].map((w, i) => (
-            <div key={i} className="h-[28px] rounded-xs" style={{
-              background: `linear-gradient(90deg, var(--bg-surface) 0%, rgba(124,58,237,0.06) 50%, var(--bg-surface) 100%)`,
-              width: `${w}%`,
-              animation: `shimmerRow 1.4s ease-in-out infinite`,
-              animationDelay: `${i * 120}ms`,
-            }} />
-          ))}
-        </div>
-      )}
-
-      {error && (
-        <div className="m-[0.875rem] p-[0.75rem_0.875rem] font-mono text-[0.68rem] text-error bg-[rgba(248,113,113,0.06)] border border-[rgba(248,113,113,0.20)] rounded-xs leading-relaxed">
-          {error}
-        </div>
-      )}
-
       {parts && parts.length === 0 && (
         <div className="px-4 py-10 text-center font-mono text-[0.68rem] text-fg-muted tracking-[0.08em]">
           No parts detected.
@@ -316,8 +295,6 @@ export default function PartsList({ parts, selectedIndices, onSelectPart }: {
   selectedIndices: number[] | null;
   onSelectPart: (indices: number[] | null) => void;
 }) {
-  const [error] = useState<string | null>(null);
-  const loading = false;
   const [modalOpen, setModalOpen] = useState(false);
 
   const groups = useMemo(() => parts ? groupSiblings(parts) : [], [parts]);
@@ -343,36 +320,28 @@ export default function PartsList({ parts, selectedIndices, onSelectPart }: {
       <div className="flex-1 flex flex-col border border-border rounded-sm overflow-hidden bg-elevated min-h-0">
         {/* Header — clickable to open modal */}
         <button
-          className={`flex items-center justify-between p-[0.55rem_0.875rem] border-b border-border shrink-0 border-x-0 border-t-0 rounded-none w-full bg-[rgba(124,58,237,0.04)] transition-colors duration-[150ms] hover:bg-[rgba(124,58,237,0.07)] ${loading ? "cursor-default" : "cursor-pointer"}`}
-          onClick={() => !loading && setModalOpen(true)}
-          disabled={loading}
+          className="flex items-center justify-between p-[0.55rem_0.875rem] border-b border-border shrink-0 border-x-0 border-t-0 rounded-none w-full bg-[rgba(124,58,237,0.04)] transition-colors duration-[150ms] hover:bg-[rgba(124,58,237,0.07)] cursor-pointer"
+          onClick={() => setModalOpen(true)}
         >
           <span className="font-mono text-[0.62rem] font-semibold tracking-[0.12em] uppercase text-fg-sub flex items-center gap-[6px]">
             Hierarchy
-            {!loading && parts && (
+            {parts && (
               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-50">
                 <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
                 <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
               </svg>
             )}
           </span>
-          <span className={`font-mono text-[0.58rem] tracking-[0.08em] flex items-center gap-[5px] ${loading ? "text-fg-muted" : error ? "text-error" : "text-lime"}`}>
-            {loading && (
-              <span className="inline-block w-[5px] h-[5px] rounded-full bg-violet animate-[dotPulse_1.1s_ease-in-out_infinite]" />
-            )}
-            {loading ? "Scanning…" : error ? "Error" : (
-              groupCount !== totalCount 
-                ? `${groupCount} unique · ${totalCount} total` 
-                : `${totalCount} part${totalCount !== 1 ? "s" : ""}`
-            )}
+          <span className="font-mono text-[0.58rem] tracking-[0.08em] flex items-center gap-[5px] text-lime">
+            {groupCount !== totalCount
+              ? `${groupCount} unique · ${totalCount} total`
+              : `${totalCount} part${totalCount !== 1 ? "s" : ""}`}
           </span>
         </button>
 
         {/* Inline compact list (preview) */}
         <PartsListContent
           parts={parts}
-          loading={loading}
-          error={error}
           selectedIndices={selectedIndices}
           onSelect={onSelectPart}
         />
@@ -395,8 +364,8 @@ export default function PartsList({ parts, selectedIndices, onSelectPart }: {
                   Parts Hierarchy
                 </span>
                 <span className="font-mono text-[0.58rem] text-lime bg-lime-dim border border-[rgba(163,230,53,0.25)] rounded-xs p-[1px_7px] tracking-[0.08em]">
-                  {groupCount !== totalCount 
-                    ? `${groupCount} unique · ${totalCount} total` 
+                  {groupCount !== totalCount
+                    ? `${groupCount} unique · ${totalCount} total`
                     : `${totalCount} part${totalCount !== 1 ? "s" : ""}`}
                 </span>
               </div>
@@ -419,8 +388,6 @@ export default function PartsList({ parts, selectedIndices, onSelectPart }: {
             {/* Full scrollable list */}
             <PartsListContent
               parts={parts}
-              loading={loading}
-              error={error}
               selectedIndices={selectedIndices}
               onSelect={onSelectPart}
               onSelectAndClose={handleSelectAndClose}

@@ -1,7 +1,7 @@
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
 
-const redisUrl = process.env.REDIS_URL ?? "redis://:securepassword123@127.0.0.1:6379";
+const redisUrl = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
 if (typeof window === "undefined") {
   console.log(`[queue] Connecting to Redis at: ${redisUrl.replace(/:[^@/]+@/, ":****@")}`);
 }

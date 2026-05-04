@@ -7,10 +7,7 @@ import { join } from "path";
 import { Client, Databases, Storage, ID, Query } from "node-appwrite";
 import IORedis from "ioredis";
 import { CadJobPayload } from "../src/lib/queue";
-
-console.log(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT);
-console.log(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID);
-console.log(process.env.APPWRITE_API_KEY);
+import { DATABASE_ID } from "../src/lib/constants";
 
 // ── Appwrite client ──────────────────────────────────────────────────────────
 function getAppwriteClient() {
@@ -21,7 +18,7 @@ function getAppwriteClient() {
   return { databases: new Databases(client), storage: new Storage(client) };
 }
 
-const DB_ID = process.env.APPWRITE_DATABASE_ID ?? "3d-modal-viewer-database";
+const DB_ID = process.env.APPWRITE_DATABASE_ID ?? DATABASE_ID;
 const BUCKET_ID = process.env.APPWRITE_MESH_BUCKET_ID ?? "glb-meshes";
 
 // ── FreeCAD Python resolution ────────────────────────────────────────────────
@@ -85,7 +82,14 @@ const FREECAD_PYTHON = resolveFreeCADPython();
 const SCRIPTS_DIR = join(process.cwd(), "scripts");
 
 // ── Spawn helper ─────────────────────────────────────────────────────────────
-function runPython(script: string, args: string[], timeoutMs: number): Promise<{ result?: any; stderr: string; error?: string }> {
+interface PythonResult {
+  parts?: unknown[];
+  mapping?: unknown[];
+  glbPath?: string;
+  [key: string]: unknown;
+}
+
+function runPython(script: string, args: string[], timeoutMs: number): Promise<{ result?: PythonResult; stderr: string; error?: string }> {
   return new Promise((resolve) => {
     const proc = spawn(FREECAD_PYTHON, [script, ...args], {
       timeout: timeoutMs,

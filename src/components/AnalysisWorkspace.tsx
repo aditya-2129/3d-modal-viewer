@@ -104,7 +104,6 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
 
       // Cache hit — analysis already done
       if (data.cached && data.analysisId) {
-        const { getAnalysis } = await import("@/lib/db");
         const analysis = await getAnalysis(data.analysisId);
         setProcessedModel({ ...analysis, fileName: file.name });
         setView("analysis");
@@ -124,7 +123,6 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
             clearInterval(poll);
             const result = status.result;
             if (result.cached && result.analysisId) {
-              const { getAnalysis } = await import("@/lib/db");
               const analysis = await getAnalysis(result.analysisId);
               setProcessedModel({ ...analysis, fileName: file.name });
             } else {
@@ -142,8 +140,8 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
           // transient network error — keep polling
         }
       }, 2500);
-    } catch (e: any) {
-      setProcessingError(e.message ?? "Processing failed");
+    } catch (e: unknown) {
+      setProcessingError(e instanceof Error ? e.message : "Processing failed");
       setProcessing(false);
     }
   }, [projectId]);

@@ -4,6 +4,7 @@ import { join } from "path";
 import { createHash } from "crypto";
 import { cadQueue } from "@/lib/queue";
 import { Client, Databases, Query } from "node-appwrite";
+import { DATABASE_ID } from "@/lib/constants";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "/uploads";
 
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const fileHash = createHash("sha256").update(buffer).digest("hex");
-    const dbId = process.env.APPWRITE_DATABASE_ID ?? "3d-modal-viewer-database";
+    const dbId = process.env.APPWRITE_DATABASE_ID ?? DATABASE_ID;
 
     // Cache check — if analysis already complete, return it immediately
     try {
