@@ -21,7 +21,7 @@ services:
       - uploads:/uploads
     env_file: .env
     environment:
-      REDIS_URL: ${REDIS_URL:-redis://:securepassword123@cad-redis:6379}
+      REDIS_URL: ${REDIS_URL:-redis://:securepassword123@localhost:6379}
       UPLOAD_DIR: ${UPLOAD_DIR:-/uploads}
 
   worker:
@@ -34,7 +34,7 @@ services:
       - uploads:/uploads
     env_file: .env
     environment:
-      REDIS_URL: ${REDIS_URL:-redis://:securepassword123@cad-redis:6379}
+      REDIS_URL: ${REDIS_URL:-redis://:securepassword123@localhost:6379}
       UPLOAD_DIR: ${UPLOAD_DIR:-/uploads}
 
 volumes:

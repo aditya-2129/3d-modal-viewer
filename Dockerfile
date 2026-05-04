@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     xvfb \
+    redis-server \
     && pip3 install trimesh \
     && mkdir -p /uploads && chmod 777 /uploads \
     && rm -rf /var/lib/apt/lists/*
@@ -15,6 +16,9 @@ RUN npm install
 COPY . .
 RUN npm run build
 
+# Make the start script executable
+RUN chmod +x start.sh
+
 EXPOSE 3000
 ENV NODE_ENV=production
-CMD ["npm", "start"]
+CMD ["./start.sh"]
