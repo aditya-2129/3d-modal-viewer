@@ -1,4 +1,4 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+e# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
 /node_modules
@@ -53,6 +53,13 @@ next-env.d.ts
 # Python
 __pycache__/
 *.pyc
+
+# local python venv / packages
+.python-packages/
+
+# local test artifacts
+/test_files/
+/test.js
 
 # ai skills
 .agents/*

@@ -66,6 +66,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
   const [view, setView] = useState<"upload" | "analysis">("upload");
   const [dragActive, setDragActive] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState<string>("Queued…");
   const [processingError, setProcessingError] = useState<string | null>(null);
   const [processedModel, setProcessedModel] = useState<ProcessedModel | null>(null);
   const [selectedIndices, setSelectedIndices] = useState<number[] | null>(null);
@@ -92,21 +93,57 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
   const processFile = useCallback(async (file: File) => {
     setProcessing(true);
     setProcessingError(null);
+    setProcessingStatus("Queued…");
     const fd = new FormData();
     fd.append("file", file);
     if (projectId) fd.append("projectId", projectId);
     try {
       const res = await fetch("/api/process-model", { method: "POST", body: fd });
       const data = await res.json();
-      if (data.error) {
-        setProcessingError(data.error);
+      if (data.error) { setProcessingError(data.error); setProcessing(false); return; }
+
+      // Cache hit — analysis already done
+      if (data.cached && data.analysisId) {
+        const { getAnalysis } = await import("@/lib/db");
+        const analysis = await getAnalysis(data.analysisId);
+        setProcessedModel({ ...analysis, fileName: file.name });
+        setView("analysis");
+        setProcessing(false);
         return;
       }
-      setProcessedModel({ parts: data.parts, mapping: data.mapping, meshFileUrl: data.meshFileUrl, fileName: file.name });
-      setView("analysis");
+
+      // Poll for job completion
+      const { jobId } = data;
+      const poll = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/job-status?jobId=${jobId}`);
+          const status = await statusRes.json();
+          if (status.status === "processing") setProcessingStatus(`Processing… ${status.progress ?? 0}%`);
+          if (status.status === "queued") setProcessingStatus("Queued…");
+          if (status.status === "done") {
+            clearInterval(poll);
+            const result = status.result;
+            if (result.cached && result.analysisId) {
+              const { getAnalysis } = await import("@/lib/db");
+              const analysis = await getAnalysis(result.analysisId);
+              setProcessedModel({ ...analysis, fileName: file.name });
+            } else {
+              setProcessedModel({ parts: result.parts, mapping: result.mapping, meshFileUrl: result.meshFileUrl, fileName: file.name });
+            }
+            setView("analysis");
+            setProcessing(false);
+          }
+          if (status.status === "failed") {
+            clearInterval(poll);
+            setProcessingError(status.error ?? "Processing failed");
+            setProcessing(false);
+          }
+        } catch {
+          // transient network error — keep polling
+        }
+      }, 2500);
     } catch (e: any) {
       setProcessingError(e.message ?? "Processing failed");
-    } finally {
       setProcessing(false);
     }
   }, [projectId]);
@@ -269,8 +306,8 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
       {processing && (
         <div className="fixed inset-0 z-50 bg-[rgba(5,5,10,0.8)] backdrop-blur-sm flex flex-col items-center justify-center gap-4">
           <div className="w-12 h-12 rounded-full border-[3px] border-[rgba(124,58,237,0.2)] border-t-violet animate-spin" />
-          <p className="font-mono text-[0.8rem] text-fg-sub">Processing model on server…</p>
-          <p className="font-mono text-[0.65rem] text-fg-muted">This may take up to 2 minutes</p>
+          <p className="font-mono text-[0.8rem] text-fg-sub">{processingStatus}</p>
+          <p className="font-mono text-[0.65rem] text-fg-muted">FreeCAD is analyzing your model…</p>
         </div>
       )}
 
