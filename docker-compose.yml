@@ -40,3 +40,7 @@ services:
 volumes:
   redis_data:
   uploads:
+
+networks:
+  default:
+    name: cad-app-network
