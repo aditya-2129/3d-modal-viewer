@@ -1,0 +1,105 @@
+
+> auto-quotation@0.1.0 lint
+> eslint
+
+
+/home/aditya/Desktop/3d-modal-viewer/public/lib/occt-import-js.js
+  9:798    error    A `require()` style import is forbidden                                @typescript-eslint/no-require-imports
+  9:825    error    A `require()` style import is forbidden                                @typescript-eslint/no-require-imports
+  9:2763   warning  'arguments_' is assigned a value but never used                        @typescript-eslint/no-unused-vars
+  9:2924   warning  'EXITSTATUS' is assigned a value but never used                        @typescript-eslint/no-unused-vars
+  9:4369   warning  'id' is defined but never used                                         @typescript-eslint/no-unused-vars
+  9:4472   warning  'id' is defined but never used                                         @typescript-eslint/no-unused-vars
+  9:6706   warning  'module' is defined but never used                                     @typescript-eslint/no-unused-vars
+  9:8984   error    A `require()` style import is forbidden                                @typescript-eslint/no-require-imports
+  9:9233   warning  'e' is defined but never used                                          @typescript-eslint/no-unused-vars
+  9:13572  warning  'pos' is defined but never used                                        @typescript-eslint/no-unused-vars
+  9:13753  warning  'e' is defined but never used                                          @typescript-eslint/no-unused-vars
+  9:14027  warning  'pos' is defined but never used                                        @typescript-eslint/no-unused-vars
+  9:14192  warning  'e' is defined but never used                                          @typescript-eslint/no-unused-vars
+  9:14304  warning  'tty' is defined but never used                                        @typescript-eslint/no-unused-vars
+  9:14577  warning  'tty' is defined but never used                                        @typescript-eslint/no-unused-vars
+  9:14736  warning  'tty' is defined but never used                                        @typescript-eslint/no-unused-vars
+  9:14740  warning  'optional_actions' is defined but never used                           @typescript-eslint/no-unused-vars
+  9:14757  warning  'data' is defined but never used                                       @typescript-eslint/no-unused-vars
+  9:14790  warning  'tty' is defined but never used                                        @typescript-eslint/no-unused-vars
+  9:15369  warning  'mount' is defined but never used                                      @typescript-eslint/no-unused-vars
+  9:18694  warning  'parent' is defined but never used                                     @typescript-eslint/no-unused-vars
+  9:18701  warning  'name' is defined but never used                                       @typescript-eslint/no-unused-vars
+  9:18936  warning  'e' is defined but never used                                          @typescript-eslint/no-unused-vars
+  9:18961  warning  'i' is assigned a value but never used                                 @typescript-eslint/no-unused-vars
+  9:19344  warning  'i' is assigned a value but never used                                 @typescript-eslint/no-unused-vars
+  9:22019  warning  'mmapFlags' is defined but never used                                  @typescript-eslint/no-unused-vars
+  9:22308  warning  'err' is defined but never used                                        @typescript-eslint/no-unused-vars
+  9:24615  error    Unexpected aliasing of 'this' to local variable                        @typescript-eslint/no-this-alias
+  9:24905  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  9:25037  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  9:28266  warning  'node' is assigned a value but never used                              @typescript-eslint/no-unused-vars
+  9:28311  warning  'e' is defined but never used                                          @typescript-eslint/no-unused-vars
+  9:33800  warning  'e' is defined but never used                                          @typescript-eslint/no-unused-vars
+  9:37970  warning  'e' is defined but never used                                          @typescript-eslint/no-unused-vars
+  9:43047  warning  'pos' is defined but never used                                        @typescript-eslint/no-unused-vars
+  9:44322  warning  'stdin' is assigned a value but never used                             @typescript-eslint/no-unused-vars
+  9:44356  warning  'stdout' is assigned a value but never used                            @typescript-eslint/no-unused-vars
+  9:44392  warning  'stderr' is assigned a value but never used                            @typescript-eslint/no-unused-vars
+  9:45281  warning  'e' is defined but never used                                          @typescript-eslint/no-unused-vars
+  9:45804  warning  'canRead' is defined but never used                                    @typescript-eslint/no-unused-vars
+  9:45812  warning  'canWrite' is defined but never used                                   @typescript-eslint/no-unused-vars
+  9:46038  warning  'e' is defined but never used                                          @typescript-eslint/no-unused-vars
+  9:47083  warning  'stream' is defined but never used                                     @typescript-eslint/no-unused-vars
+  9:47164  warning  'pos' is defined but never used                                        @typescript-eslint/no-unused-vars
+  9:47247  warning  'e' is defined but never used                                          @typescript-eslint/no-unused-vars
+  9:47521  warning  'pos' is defined but never used                                        @typescript-eslint/no-unused-vars
+  9:47587  warning  'e' is defined but never used                                          @typescript-eslint/no-unused-vars
+  9:48125  warning  'e' is defined but never used                                          @typescript-eslint/no-unused-vars
+  9:49699  error    Unexpected aliasing of 'this' to local variable                        @typescript-eslint/no-this-alias
+  9:51761  warning  'prot' is defined but never used                                       @typescript-eslint/no-unused-vars
+  9:51766  warning  'flags' is defined but never used                                      @typescript-eslint/no-unused-vars
+  9:52583  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  9:52975  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  9:53282  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  9:53589  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  9:53896  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  9:54719  warning  'flags' is defined but never used                                      @typescript-eslint/no-unused-vars
+  9:59304  warning  'primitiveType' is defined but never used                              @typescript-eslint/no-unused-vars
+  9:59318  warning  'name' is defined but never used                                       @typescript-eslint/no-unused-vars
+  9:59323  warning  'size' is defined but never used                                       @typescript-eslint/no-unused-vars
+  9:59328  warning  'minRange' is defined but never used                                   @typescript-eslint/no-unused-vars
+  9:59337  warning  'maxRange' is defined but never used                                   @typescript-eslint/no-unused-vars
+  9:70734  warning  'isNonnullReturn' is defined but never used                            @typescript-eslint/no-unused-vars
+  9:71980  warning  'value' is defined but never used                                      @typescript-eslint/no-unused-vars
+  9:71986  warning  'toTypeName' is defined but never used                                 @typescript-eslint/no-unused-vars
+  9:78115  warning  'destructors' is defined but never used                                @typescript-eslint/no-unused-vars
+  9:78127  warning  'o' is defined but never used                                          @typescript-eslint/no-unused-vars
+  9:81855  warning  'reflectConstruct' is assigned a value but never used                  @typescript-eslint/no-unused-vars
+  9:88856  warning  'e' is defined but never used                                          @typescript-eslint/no-unused-vars
+  9:90715  warning  'implicit' is defined but never used                                   @typescript-eslint/no-unused-vars
+  9:91703  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  9:94271  warning  '___wasm_call_ctors' is assigned a value but never used                @typescript-eslint/no-unused-vars
+  9:94682  warning  'dynCall_viijii' is assigned a value but never used                    @typescript-eslint/no-unused-vars
+  9:94832  warning  'dynCall_viiiiji' is assigned a value but never used                   @typescript-eslint/no-unused-vars
+  9:94992  warning  'dynCall_jiji' is assigned a value but never used                      @typescript-eslint/no-unused-vars
+  9:95122  warning  'dynCall_iiiiij' is assigned a value but never used                    @typescript-eslint/no-unused-vars
+  9:95272  warning  'dynCall_iiiiijj' is assigned a value but never used                   @typescript-eslint/no-unused-vars
+  9:95438  warning  'dynCall_iiiiiijj' is assigned a value but never used                  @typescript-eslint/no-unused-vars
+
+/home/aditya/Desktop/3d-modal-viewer/src/__tests__/dashboard.test.tsx
+  1:36  warning  'beforeEach' is defined but never used  @typescript-eslint/no-unused-vars
+  3:8   warning  'userEvent' is defined but never used   @typescript-eslint/no-unused-vars
+
+/home/aditya/Desktop/3d-modal-viewer/src/app/layout.tsx
+  26:9  warning  Custom fonts not added in `pages/_document.js` will only load for a single page. This is discouraged. See: https://nextjs.org/docs/messages/no-page-custom-font  @next/next/no-page-custom-font
+
+/home/aditya/Desktop/3d-modal-viewer/src/components/ModelViewer.tsx
+   65:5   warning  Unused eslint-disable directive (no problems were reported from 'react-hooks/immutability')
+  216:10  warning  'isTouch' is assigned a value but never used                                                 @typescript-eslint/no-unused-vars
+
+/home/aditya/Desktop/3d-modal-viewer/src/components/PartsList.tsx
+  129:7  warning  The attribute aria-selected is not supported by the role button  jsx-a11y/role-supports-aria-props
+
+/home/aditya/Desktop/3d-modal-viewer/workers/freecad.worker.ts
+  133:32  warning  'fileName' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+✖ 85 problems (5 errors, 80 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+

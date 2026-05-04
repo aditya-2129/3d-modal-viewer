@@ -176,7 +176,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
     if (name.endsWith(".step") || name.endsWith(".stp") || name.endsWith(".iges") || name.endsWith(".igs")) {
       processFile(f);
     } else {
-      alert("Please upload a valid CAD file (.step, .stp, .iges, or .igs)");
+      setProcessingError("Please upload a valid CAD file (.step, .stp, .iges, or .igs)");
     }
   };
 
@@ -187,7 +187,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
     if (name.endsWith(".step") || name.endsWith(".stp") || name.endsWith(".iges") || name.endsWith(".igs")) {
       processFile(f);
     } else {
-      alert("Please upload a valid CAD file (.step, .stp, .iges, or .igs)");
+      setProcessingError("Please upload a valid CAD file (.step, .stp, .iges, or .igs)");
       if (inputRef.current) inputRef.current.value = "";
     }
   };

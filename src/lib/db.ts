@@ -12,8 +12,7 @@ export interface Project {
 }
 
 /**
- * Fetch all projects for the current user.
- * Document-level permissions ensure only the user's own projects are returned.
+ * Fetch a specific analysis by its ID.
  */
 export async function getAnalysis(analysisId: string) {
   const doc = await databases.getDocument(DATABASE_ID, ANALYSIS_COLLECTION_ID, analysisId);
@@ -31,6 +30,15 @@ export async function getProjects(): Promise<Project[]> {
     [Query.orderDesc("createdAt")]
   );
   return response.documents as unknown as Project[];
+}
+
+export async function getProject(projectId: string): Promise<Project> {
+  const response = await databases.getDocument(
+    DATABASE_ID,
+    PROJECTS_COLLECTION_ID,
+    projectId
+  );
+  return response as unknown as Project;
 }
 
 /**

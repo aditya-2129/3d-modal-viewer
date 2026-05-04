@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { logout } from "@/lib/appwrite";
@@ -10,6 +11,7 @@ import ProjectList from "@/components/dashboard/ProjectList";
 import CreateProjectModal from "@/components/dashboard/CreateProjectModal";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,6 +20,7 @@ export default function DashboardPage() {
 
   const fetchProjects = useCallback(async () => {
     try {
+      setLoading(true);
       setError(null);
       const data = await getProjects();
       setProjects(data);
@@ -29,7 +32,10 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    fetchProjects();
+    const load = async () => {
+      await fetchProjects();
+    };
+    load();
   }, [fetchProjects]);
 
   const handleCreate = async (name: string) => {
@@ -40,7 +46,7 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     await logout();
-    window.location.href = "/";
+    router.replace("/");
   };
 
   return (
@@ -130,7 +136,7 @@ export default function DashboardPage() {
             </div>
             <p className="font-mono text-[0.75rem] text-error">{error}</p>
             <button
-              onClick={() => { setLoading(true); fetchProjects(); }}
+              onClick={() => fetchProjects()}
               className="font-mono text-[0.65rem] text-fg-sub hover:text-violet transition-colors tracking-wider uppercase cursor-pointer bg-transparent border border-border rounded-xs px-3 py-1.5"
             >
               Retry

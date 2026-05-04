@@ -67,29 +67,29 @@
 
 ## Bad Practices / Code Quality
 
-- [ ] **16. `src/components/ModelViewer.tsx:9-12` — Global `console.warn` monkey-patch**
+- [x] **16. `src/components/ModelViewer.tsx:9-12` — Global `console.warn` monkey-patch**
   Globally overriding `console.warn` to suppress a `THREE.Clock` deprecation is a fragile hack that silences all warnings matching the pattern across the entire app.
 
-- [ ] **17. `src/components/AnalysisWorkspace.tsx:181,192` — `alert()` for validation feedback**
+- [x] **17. `src/components/AnalysisWorkspace.tsx:181,192` — `alert()` for validation feedback**
   Two `alert()` calls for invalid file type errors, while a `processingError` state already exists specifically for inline error display.
 
-- [ ] **18. `src/app/(protected)/dashboard/page.tsx:43` — `window.location.href` for post-logout navigation**
+- [x] **18. `src/app/(protected)/dashboard/page.tsx:43` — `window.location.href` for post-logout navigation**
   Uses direct browser navigation instead of `router.replace("/login")`, inconsistent with every other navigation call in the codebase.
 
-- [ ] **19. `src/app/(protected)/dashboard/page.tsx:133` — `setLoading(true)` leaked outside `fetchProjects`**
+- [x] **19. `src/app/(protected)/dashboard/page.tsx:133` — `setLoading(true)` leaked outside `fetchProjects`**
   The retry button manually calls `setLoading(true)` before invoking `fetchProjects`, but the loading state management should live entirely inside `fetchProjects` itself.
 
-- [ ] **20. `src/app/(protected)/project/[id]/page.tsx:9` — Project name is a truncated document ID**
+- [x] **20. `src/app/(protected)/project/[id]/page.tsx:9` — Project name is a truncated document ID**
   `projectName={\`Project ${params.id.slice(0, 8)}\`}` shows a placeholder derived from the Appwrite document ID. The actual `project.name` from the database is never fetched at this level and passed in.
 
-- [ ] **21. `src/lib/db.ts:14` — Wrong JSDoc comment on `getAnalysis`**
+- [x] **21. `src/lib/db.ts:14` — Wrong JSDoc comment on `getAnalysis`**
   The comment says `"Fetch all projects for the current user."` — copy-paste error from the `getProjects` function directly below it.
 
-- [ ] **22. `src/app/api/process-model/route.ts:46` + `workers/freecad.worker.ts:149` — Silent empty `catch {}`**
+- [x] **22. `src/app/api/process-model/route.ts:46` + `workers/freecad.worker.ts:149` — Silent empty `catch {}`**
   Cache-check errors are swallowed entirely with no logging. A failed cache check could mask configuration or network issues.
 
-- [ ] **23. `src/components/dashboard/ProjectList.tsx:1` — Unnecessary `"use client"` directive**
+- [x] **23. `src/components/dashboard/ProjectList.tsx:1` — Unnecessary `"use client"` directive**
   `ProjectList` uses no hooks or browser APIs — only renders JSX with `next/link`. It can be a Server Component.
 
-- [ ] **24. `workers/freecad.worker.ts:60` — `require("glob")` in a TypeScript file**
+- [x] **24. `workers/freecad.worker.ts:60` — `require("glob")` in a TypeScript file**
   Uses CJS `require()` dynamically inside `resolveFreeCADPython()` for a package that is already a listed dependency. Should be a top-level ESM import.

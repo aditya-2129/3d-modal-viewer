@@ -5,12 +5,6 @@ import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import { OrbitControls, Html, Environment, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 
-// Suppress THREE.Clock deprecation warning from @react-three/fiber internals.
-const _origWarn = console.warn;
-console.warn = (...args: unknown[]) => {
-  if (typeof args[0] === "string" && args[0].includes("THREE.Clock")) return;
-  _origWarn.apply(console, args);
-};
 
 interface ModelViewerProps {
   meshFileUrl: string;
@@ -66,13 +60,15 @@ function FitCamera({ geometries, resetToken }: { geometries: THREE.BufferGeometr
     if (isNaN(targetPos.x) || isNaN(targetPos.y) || isNaN(targetPos.z)) return;
 
     camera.position.copy(targetPos);
-    camera.near = Math.max(distance / 1000, 0.01);
-    camera.far = Math.max(distance * 10, 1000);
+    // eslint-disable-next-line react-hooks/immutability
+    (camera as THREE.PerspectiveCamera).near = Math.max(distance / 1000, 0.01);
+    // eslint-disable-next-line react-hooks/immutability
+    (camera as THREE.PerspectiveCamera).far = Math.max(distance * 10, 1000);
     camera.updateProjectionMatrix();
     camera.lookAt(center);
 
     if (controls) {
-      const oc = controls as OrbitControlsLike;
+      const oc = controls as unknown as OrbitControlsLike;
       oc.target.copy(center);
       oc.update();
     }
@@ -118,8 +114,10 @@ const GLBModel = ({
 
   const geometries = useMemo(() => {
     const geos: THREE.BufferGeometry[] = [];
-    scene.traverse((obj: any) => {
-      if (obj.isMesh && obj.geometry) geos.push(obj.geometry);
+    scene.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        geos.push(obj.geometry);
+      }
     });
     return geos;
   }, [scene]);
@@ -215,12 +213,13 @@ export default function ModelViewer({ meshFileUrl, mapping, selectedIndices }: M
   const [resetToken, setResetToken] = useState(0);
   const [canvasKey, setCanvasKey] = useState(0);
   const [isPanMode, setIsPanMode] = useState(false);
-  const [isTouch, setIsTouch] = useState(false);
   const [webglAvailable, setWebglAvailable] = useState(true);
 
   useEffect(() => {
-    setIsTouch('ontouchstart' in window || navigator.maxTouchPoints > 0);
-    setWebglAvailable(checkWebGL());
+    const check = () => {
+      setWebglAvailable(checkWebGL());
+    };
+    check();
   }, []);
 
   const handleReset = () => setResetToken(t => t + 1);

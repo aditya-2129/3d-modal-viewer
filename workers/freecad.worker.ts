@@ -6,6 +6,7 @@ import { readFile, rm } from "fs/promises";
 import { join } from "path";
 import { Client, Databases, Storage, ID, Query } from "node-appwrite";
 import IORedis from "ioredis";
+import { globSync } from "glob";
 import { CadJobPayload } from "../src/lib/queue";
 import { DATABASE_ID } from "../src/lib/constants";
 
@@ -54,7 +55,6 @@ function resolveFreeCADPython(): string {
   if (existsSync(snapPy)) return snapPy;
   // Nix store — find FreeCAD's own Python so versions match
   try {
-    const { globSync } = require("glob");
     for (const pattern of ["/nix/store/*freecad*/bin/python3", "/nix/store/*freecad*/bin/python"]) {
       const matches: string[] = globSync(pattern).sort().reverse();
       if (matches.length) return matches[0];
@@ -130,7 +130,7 @@ const connection = new IORedis(redisUrl, {
 const worker = new Worker<CadJobPayload>(
   "cad-processing",
   async (job: Job<CadJobPayload>) => {
-    const { jobType, filePath, fileName, fileHash, projectId } = job.data;
+    const { jobType, filePath, fileHash, projectId } = job.data;
     const outDir = `${filePath}_out`;
     mkdirSync(outDir, { recursive: true });
 
@@ -150,7 +150,9 @@ const worker = new Worker<CadJobPayload>(
           return { cached: true, analysisId: doc.$id };
         }
       }
-    } catch {}
+    } catch (err) {
+      console.error("[worker] Cache check failed:", err);
+    }
 
     await job.updateProgress(10);
 

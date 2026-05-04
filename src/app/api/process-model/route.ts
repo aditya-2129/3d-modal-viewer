@@ -44,7 +44,9 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ cached: true, analysisId: doc.$id });
         }
       }
-    } catch {}
+    } catch (err) {
+      console.error("[api/process-model] Cache check failed:", err);
+    }
 
     // Write file to shared volume
     const jobDir = join(UPLOAD_DIR, `job_${Date.now()}_${fileHash.slice(0, 8)}`);
@@ -65,7 +67,8 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ jobId: job.id });
-  } catch (error: any) {
-    return NextResponse.json({ error: error?.message ?? "Failed to process upload" }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to process upload";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
