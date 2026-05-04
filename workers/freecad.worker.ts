@@ -116,7 +116,10 @@ function runPython(script: string, args: string[], timeoutMs: number): Promise<{
 }
 
 // ── Worker ───────────────────────────────────────────────────────────────────
-const connection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
+const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
+console.log(`[worker] Connecting to Redis at: ${redisUrl.replace(/:[^@/]+@/, ":****@")}`);
+
+const connection = new IORedis(redisUrl, {
   maxRetriesPerRequest: null,
 });
 

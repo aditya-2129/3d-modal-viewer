@@ -21,8 +21,8 @@ services:
       - uploads:/uploads
     env_file: .env
     environment:
-      REDIS_URL: redis://redis:6379
-      UPLOAD_DIR: /uploads
+      REDIS_URL: ${REDIS_URL}
+      UPLOAD_DIR: ${UPLOAD_DIR}
 
   worker:
     build: .
@@ -34,8 +34,8 @@ services:
       - uploads:/uploads
     env_file: .env
     environment:
-      REDIS_URL: redis://redis:6379
-      UPLOAD_DIR: /uploads
+      REDIS_URL: ${REDIS_URL}
+      UPLOAD_DIR: ${UPLOAD_DIR}
 
 volumes:
   redis_data:

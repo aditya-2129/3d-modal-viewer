@@ -1,7 +1,12 @@
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
 
-export const connection = new IORedis(process.env.REDIS_URL ?? "redis://localhost:6379", {
+const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
+if (typeof window === "undefined") {
+  console.log(`[queue] Connecting to Redis at: ${redisUrl.replace(/:[^@/]+@/, ":****@")}`);
+}
+
+export const connection = new IORedis(redisUrl, {
   maxRetriesPerRequest: null,
 });
 
