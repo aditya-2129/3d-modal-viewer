@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  redis:
+  cad-redis:
     image: redis:7-alpine
     command: redis-server --requirepass securepassword123
     restart: unless-stopped
@@ -16,7 +16,7 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - redis
+      - cad-redis
     volumes:
       - uploads:/uploads
     env_file: .env
@@ -29,7 +29,7 @@ services:
     restart: unless-stopped
     command: npx tsx workers/freecad.worker.ts
     depends_on:
-      - redis
+      - cad-redis
     volumes:
       - uploads:/uploads
     env_file: .env
