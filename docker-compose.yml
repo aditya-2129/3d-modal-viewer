@@ -3,6 +3,7 @@ version: "3.9"
 services:
   redis:
     image: redis:7-alpine
+    command: redis-server --requirepass securepassword123
     restart: unless-stopped
     ports:
       - "6379:6379"
