@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# If REDIS_URL points to the docker-compose service name, rewrite it for single-container mode
+if echo "${REDIS_URL}" | grep -q "cad-redis"; then
+  export REDIS_URL=$(echo "$REDIS_URL" | sed 's/cad-redis/127.0.0.1/g')
+  echo "Rewrote REDIS_URL to use 127.0.0.1 (was cad-redis)"
+fi
+
+# Default to local Redis with password if REDIS_URL is unset
+export REDIS_URL="${REDIS_URL:-redis://:securepassword123@127.0.0.1:6379}"
+
 # Start Redis in the background with password
 redis-server --requirepass securepassword123 --daemonize yes
 
