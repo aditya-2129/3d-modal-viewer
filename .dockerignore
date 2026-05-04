@@ -1,0 +1,11 @@
+node_modules
+.next
+out
+build
+coverage
+*.log
+.git
+.env
+.python-packages
+uploads
+scripts/__pycache__

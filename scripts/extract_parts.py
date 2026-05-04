@@ -2,23 +2,30 @@ import sys
 import json
 import os
 
-# Add FreeCAD lib to path when running via FreeCAD's python.exe on Windows
-if sys.platform == "win32":
-    win_path = "C:/Program Files/FreeCAD 1.1/lib"
-    if os.path.exists(win_path):
-        sys.path.insert(0, win_path)
-elif os.path.exists("/usr/lib/freecad/lib"):
-    sys.path.insert(0, "/usr/lib/freecad/lib")
-elif os.path.exists("/usr/lib/freecad-python3/lib"):
-    sys.path.insert(0, "/usr/lib/freecad-python3/lib")
-elif os.path.exists("/snap/freecad/current/usr/lib"):
-    sys.path.insert(0, "/snap/freecad/current/usr/lib")
+# FreeCAD path setup — mirror process_model.py with Docker-first priority
+FREECAD_PATHS = [
+    "/usr/lib/freecad/lib",           # Standard Docker/Debian
+    "/usr/lib/freecad-python3/lib",   # Alternate Debian
+    "/snap/freecad/current/usr/lib",  # Snap (local)
+]
+
+for p in FREECAD_PATHS:
+    if os.path.exists(p):
+        sys.path.insert(0, p)
+        break
 else:
+    # Nix/other fallbacks
     import glob as _glob
     for _p in sorted(_glob.glob("/nix/store/*freecad*/lib"), reverse=True):
         if os.path.exists(os.path.join(_p, "FreeCAD.so")):
             sys.path.insert(0, _p)
             break
+
+# Windows fallback
+if sys.platform == "win32":
+    win_path = "C:/Program Files/FreeCAD 1.1/lib"
+    if os.path.exists(win_path):
+        sys.path.insert(0, win_path)
 
 def get_shape_type(shape):
     t = shape.ShapeType

@@ -2,32 +2,30 @@ import sys
 import os
 import json
 
-# FreeCAD path setup — mirror extract_parts.py
-if sys.platform == "win32":
-    win_path = "C:/Program Files/FreeCAD 1.1/lib"
-    if os.path.exists(win_path):
-        sys.path.insert(0, win_path)
-elif os.path.exists("/usr/lib/freecad/lib"):
-    sys.path.insert(0, "/usr/lib/freecad/lib")
-elif os.path.exists("/usr/lib/freecad-python3/lib"):
-    sys.path.insert(0, "/usr/lib/freecad-python3/lib")
-elif os.path.exists("/snap/freecad/current/usr/lib"):
-    sys.path.insert(0, "/snap/freecad/current/usr/lib")
+# FreeCAD path setup — mirror extract_parts.py with Docker-first priority
+FREECAD_PATHS = [
+    "/usr/lib/freecad/lib",           # Standard Docker/Debian
+    "/usr/lib/freecad-python3/lib",   # Alternate Debian
+    "/snap/freecad/current/usr/lib",  # Snap (local)
+]
+
+for p in FREECAD_PATHS:
+    if os.path.exists(p):
+        sys.path.insert(0, p)
+        break
 else:
+    # Nix/other fallbacks
     import glob as _glob
     for _p in sorted(_glob.glob("/nix/store/*freecad*/lib"), reverse=True):
         if os.path.exists(os.path.join(_p, "FreeCAD.so")):
             sys.path.insert(0, _p)
             break
 
-# Add trimesh — check both the invoking user's home and known absolute paths
-for _trimesh_path in [
-    os.path.expanduser("~/.local/lib/python3.12/site-packages"),
-    "/home/aditya/.local/lib/python3.12/site-packages",
-    "/root/.local/lib/python3.12/site-packages",
-]:
-    if os.path.exists(_trimesh_path) and _trimesh_path not in sys.path:
-        sys.path.insert(0, _trimesh_path)
+# Windows fallback
+if sys.platform == "win32":
+    win_path = "C:/Program Files/FreeCAD 1.1/lib"
+    if os.path.exists(win_path):
+        sys.path.insert(0, win_path)
 
 sys.path.insert(0, os.path.dirname(__file__))
 from extract_parts import (
