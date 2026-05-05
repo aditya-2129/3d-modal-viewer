@@ -6,8 +6,6 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 <!-- END:nextjs-agent-rules -->
 
-keep this project simple this is an exprimental project to learn keep everything concise except code
-
 FreeCAD docs — strict access rule
 
 The `freecad_docs/` folder exists ONLY for tasks that directly involve `scripts/extract_parts.py` or any new FreeCAD Python script.

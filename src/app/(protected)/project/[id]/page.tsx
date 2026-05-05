@@ -7,15 +7,18 @@ import AnalysisWorkspace from "@/components/AnalysisWorkspace";
 
 export default function ProjectPage() {
   const params = useParams<{ id: string }>();
-  const [projectName, setProjectName] = useState<string>(`Project ${params.id.slice(0, 8)}`);
+  const [project, setProject] = useState<{ name: string; analysisId?: string } | null>(null);
 
   useEffect(() => {
     if (params.id) {
+      void Promise.resolve().then(() => setProject(null));
       getProject(params.id)
-        .then(project => setProjectName(project.name))
+        .then(setProject)
         .catch(() => {}); // Fallback to truncated ID already in state
     }
   }, [params.id]);
 
-  return <AnalysisWorkspace projectId={params.id} projectName={projectName} />;
+  const projectName = project?.name ?? `Project ${params.id.slice(0, 8)}`;
+
+  return <AnalysisWorkspace projectId={params.id} projectName={projectName} analysisId={project?.analysisId} />;
 }

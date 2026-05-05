@@ -1,108 +1,121 @@
-# AutoQuotation — 3D CAD Analysis & Viewer
+# AutoQuotation
 
-AutoQuotation is a modern, high-performance web application designed for rapid 3D CAD model analysis and manufacturing quotation. It allows users to upload STEP/STP files, visualize them in real-time using WebAssembly, and perform deep geometric analysis to identify parts, stock shapes, and manufacturing requirements.
+Experimental 3D CAD viewer and geometry analysis app.
 
-![Architecture Diagram](https://img.shields.io/badge/Architecture-Next.js%2016%20+%20FreeCAD%20+%20Three.js-blue)
-![License](https://img.shields.io/badge/License-Private-red)
+The app lets a signed-in user create projects, upload STEP/STP/IGES files, process them with a FreeCAD worker, and view the generated GLB mesh with a parts/stock breakdown.
 
-## 🚀 Key Features
+## Stack
 
-- **Instant 3D Rendering**: Client-side STEP to mesh tessellation using `occt-import-js` (WASM) for buttery-smooth performance.
-- **Deep Geometric Analysis**: Automated part extraction and classification using FreeCAD's robust Open Cascade engine.
-- **Stock Shape Detection**: Intelligently classifies parts into Round, Hex, or Rectangular stock based on principal moments of inertia and face analysis.
-- **Part Tree Visualization**: Interactive split-pane view showing the hierarchical structure of complex assemblies.
-- **Project Dashboard**: Multi-project system with create, list, and navigate flows. Auth-guarded with document-level Appwrite permissions.
-- **Cloud Integration**: Powered by Appwrite for authentication (Google OAuth), file storage, and metadata management.
-- **Deployment Ready**: Optimized for Coolify/Nixpacks with custom configuration.
+- Next.js 16 App Router
+- React 19
+- Three.js via `@react-three/fiber` and `@react-three/drei`
+- Appwrite for auth, database, and file storage
+- Redis + BullMQ for CAD processing jobs
+- FreeCAD Python scripts for geometry analysis and GLB generation
 
-## 🏗️ Architecture
+## How It Works
 
-### Frontend (Client-Side)
-- **Framework**: Next.js 16 (App Router)
-- **3D Engine**: `@react-three/fiber` + `three.js`
-- **WASM Processing**: `occt-import-js` for browser-based STEP parsing.
-- **UI Components**: Custom vanilla CSS for premium aesthetics and flexibility.
+1. The browser uploads a CAD file to `/api/process-model`.
+2. The API stores the source file in Appwrite Storage and enqueues a BullMQ job.
+3. `workers/freecad.worker.ts` downloads the file, runs `scripts/process_model.py` through FreeCAD, uploads the GLB result, and stores analysis metadata in Appwrite.
+4. The browser polls `/api/job-status` and loads the completed analysis into the viewer.
 
-### Backend (Server-Side)
-- **API Routes**: Next.js Serverless functions for handling file uploads and triggering analysis.
-- **Geometry Engine**: FreeCAD (Python) integrated via sub-processes to handle complex CAD kernels.
-- **Extraction Script**: `scripts/extract_parts.py` handles the heavy lifting of traversing assemblies and calculating geometric properties.
+## Requirements
 
-### Storage & Database
-- **Backend-as-a-Service**: Appwrite for managing model files, analysis results, and project metadata.
+- Node.js 20+
+- Redis
+- Appwrite project with the schema from `appwrite.config.json`
+- FreeCAD available to the worker as either:
+  - `freecadcmd`
+  - `snap run freecad.cmd`
 
-## 🛠️ Getting Started
+## Environment
 
-### Prerequisites
-- **Node.js**: v20 or later
-- **FreeCAD**: v1.1 (required for the analysis engine)
-- **Appwrite**: A running instance (cloud or self-hosted)
+Create `.env` in the project root:
 
-### Environment Setup
-Create a `.env` file in the root directory:
 ```env
 NEXT_PUBLIC_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
 NEXT_PUBLIC_APPWRITE_PROJECT_ID=your_project_id
 APPWRITE_API_KEY=your_api_key
-FREECAD_PYTHON=C:\Program Files\FreeCAD 1.1\bin\python.exe  # Update path for Linux/macOS
+APPWRITE_DATABASE_ID=3d-modal-viewer-database
+APPWRITE_MESH_BUCKET_ID=glb-meshes
+REDIS_URL=redis://127.0.0.1:6379
 ```
 
-### Installation
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-   The app will be available at [http://localhost:4000](http://localhost:4000).
+`APPWRITE_DATABASE_ID` and `APPWRITE_MESH_BUCKET_ID` should match `appwrite.config.json`.
 
-## 📁 Project Structure
+## Appwrite Setup
 
-- `src/app/` — Next.js pages and API routes.
-  - `(protected)/` — Auth-guarded route group (dashboard, project pages).
-- `src/components/` — Reusable React components (3D Viewer, Parts List, Dashboard, etc.).
-- `src/hooks/` — Shared React hooks (`useAuth`).
-- `src/lib/` — Appwrite client, database helpers, constants.
-- `scripts/` — Python scripts for FreeCAD geometry processing.
-- `public/lib/` — WASM binaries for `occt-import-js`.
-- `freecad_docs/` — Technical documentation for the FreeCAD API integration.
-
-## 🧪 Testing
-
-Tests use **Vitest** + **React Testing Library**.
-
-```bash
-# Run all tests
-npm test
-
-# Watch mode
-npm run test:watch
-```
-
-## 🚢 Deployment
-
-The project is configured for deployment using **Nixpacks**. A `nixpacks.toml` is included to handle the specific build requirements of Next.js and the Python environment.
-
-```bash
-# Build the project
-npm run build
-
-# Start production server
-npm run start
-```
-
-### Appwrite Setup
-
-The `appwrite.config.json` defines all collections declaratively. Push to your Appwrite instance with:
+Push the database and bucket config with:
 
 ```bash
 npx appwrite push tables
 ```
 
----
+Google OAuth also needs to be enabled in the Appwrite console for login to work.
 
-*Note: This is an experimental project focused on bridging the gap between CAD geometry and automated manufacturing workflows.*
+## Local Development
 
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start Redis, then run the app:
+
+```bash
+npm run dev
+```
+
+In another terminal, start the CAD worker:
+
+```bash
+npm run worker
+```
+
+The app runs at:
+
+```text
+http://localhost:4000
+```
+
+## Docker
+
+The repo includes:
+
+- `Dockerfile` for the Next.js app
+- `Dockerfile.worker` for the FreeCAD worker
+- `docker-compose.yml` for app, worker, and Redis
+
+Run with:
+
+```bash
+docker compose up --build
+```
+
+## Useful Commands
+
+```bash
+npm run dev      # Next dev server on port 4000
+npm run worker   # FreeCAD/BullMQ worker
+npm run build    # Production build
+npm run start    # Start built Next app
+npm run lint     # ESLint
+npm test         # Vitest
+```
+
+## Project Structure
+
+- `src/app/` - Next.js pages and API routes
+- `src/app/(protected)/` - auth-gated dashboard, viewer, and project pages
+- `src/components/` - viewer, analysis workspace, parts list, dashboard UI
+- `src/lib/` - Appwrite, database helpers, queue setup, constants
+- `workers/freecad.worker.ts` - BullMQ worker that runs FreeCAD
+- `scripts/process_model.py` - FreeCAD processing script used by the worker
+- `scripts/extract_parts.py` - geometry helpers used by `process_model.py`
+- `appwrite.config.json` - Appwrite database/bucket schema
+
+## Notes
+
+This is a learning project, so keep changes small and easy to understand.

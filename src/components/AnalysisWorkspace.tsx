@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { getAnalysis, getProjects } from "@/lib/db";
+import { getAnalysis } from "@/lib/db";
 
 const ModelViewer = dynamic(() => import("@/components/ModelViewer"), {
   ssr: false,
@@ -59,9 +59,10 @@ type ProcessedModel = {
 interface AnalysisWorkspaceProps {
   projectId?: string;
   projectName?: string;
+  analysisId?: string;
 }
 
-export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWorkspaceProps) {
+export default function AnalysisWorkspace({ projectId, projectName, analysisId }: AnalysisWorkspaceProps) {
   const router = useRouter();
   const [view, setView] = useState<"upload" | "analysis">("upload");
   const [dragActive, setDragActive] = useState(false);
@@ -73,26 +74,42 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
   const [processedModel, setProcessedModel] = useState<ProcessedModel | null>(null);
   const [selectedIndices, setSelectedIndices] = useState<number[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const clearProcessingTimers = useCallback(() => {
+    if (simIntervalRef.current !== null) {
+      clearInterval(simIntervalRef.current);
+      simIntervalRef.current = null;
+    }
+    if (pollIntervalRef.current !== null) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  }, []);
 
   // On mount: if project has a cached analysis, load it directly
   useEffect(() => {
-    if (!projectId) return;
+    if (!analysisId) return;
     (async () => {
       try {
-        const projects = await getProjects();
-        const project = projects.find(p => p.$id === projectId);
-        if (project?.analysisId) {
-          const analysis = await getAnalysis(project.analysisId);
-          setProcessedModel({ ...analysis, fileName: projectName });
-          setView("analysis");
-        }
+        const analysis = await getAnalysis(analysisId);
+        setProcessedModel({ ...analysis, fileName: projectName });
+        setView("analysis");
       } catch {
         // No cached analysis — show upload screen
       }
     })();
-  }, [projectId, projectName]);
+  }, [analysisId, projectName]);
+
+  useEffect(() => {
+    return () => {
+      clearProcessingTimers();
+    };
+  }, [clearProcessingTimers]);
 
   const processFile = useCallback(async (file: File) => {
+    clearProcessingTimers();
     setProcessing(true);
     setProcessingError(null);
     setProcessingStatus("Uploading file…");
@@ -101,7 +118,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
 
     // Simulate progress — pauses while waiting in queue (queueAhead > 0)
     let paused = false;
-    const sim = setInterval(() => {
+    simIntervalRef.current = setInterval(() => {
       if (paused) return;
       setProcessingProgress(prev => prev < 79 ? Math.min(79, prev + 0.2) : prev);
     }, 500);
@@ -112,11 +129,11 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
     try {
       const res = await fetch("/api/process-model", { method: "POST", body: fd });
       const data = await res.json();
-      if (data.error) { clearInterval(sim); setProcessingError(data.error); setProcessing(false); return; }
+      if (data.error) { clearProcessingTimers(); setProcessingError(data.error); setProcessing(false); return; }
 
       // Cache hit — analysis already done
       if (data.cached && data.analysisId) {
-        clearInterval(sim);
+        clearProcessingTimers();
         setProcessingProgress(100);
         const analysis = await getAnalysis(data.analysisId);
         setProcessedModel({ ...analysis, fileName: file.name });
@@ -130,7 +147,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
       setProcessingStatus("Queued…");
       let jobStarted = false;
 
-      const poll = setInterval(async () => {
+      pollIntervalRef.current = setInterval(async () => {
         try {
           const statusRes = await fetch(`/api/job-status?jobId=${jobId}`);
           const status = await statusRes.json();
@@ -157,8 +174,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
           }
           if (status.status === "done") {
             setQueueAhead(null);
-            clearInterval(poll);
-            clearInterval(sim);
+            clearProcessingTimers();
             setProcessingProgress(100);
             setProcessingStatus("Done!");
             const result = status.result;
@@ -172,8 +188,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
             setProcessing(false);
           }
           if (status.status === "failed") {
-            clearInterval(poll);
-            clearInterval(sim);
+            clearProcessingTimers();
             setProcessingError(status.error ?? "Processing failed");
             setProcessing(false);
           }
@@ -182,11 +197,11 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
         }
       }, 1000);
     } catch (e: unknown) {
-      clearInterval(sim);
+      clearProcessingTimers();
       setProcessingError(e instanceof Error ? e.message : "Processing failed");
       setProcessing(false);
     }
-  }, [projectId]);
+  }, [clearProcessingTimers, projectId]);
 
   const handleSelectPart = (indices: number[] | null) => {
     if (!indices || indices.length === 0) { setSelectedIndices(null); return; }
@@ -220,6 +235,12 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
     } else {
       setProcessingError("Please upload a valid CAD file (.step, .stp, .iges, or .igs)");
     }
+  };
+
+  const handleDropZoneKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    inputRef.current?.click();
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -413,6 +434,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
           onDragOver={handleDrag}
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
+          onKeyDown={handleDropZoneKeyDown}
           role="button"
           tabIndex={0}
           aria-label="Upload CAD file"

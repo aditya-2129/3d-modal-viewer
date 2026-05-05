@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
-import { cadQueue } from "@/lib/queue";
+import { getCadQueue } from "@/lib/queue";
 import { Client, Databases, Storage, ID, Query } from "node-appwrite";
 import { DATABASE_ID } from "@/lib/constants";
 
@@ -24,6 +24,27 @@ export async function POST(req: NextRequest) {
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+
+    const maxUploadSize = 50 * 1024 * 1024;
+    const allowedExtensions = [".step", ".stp", ".iges", ".igs"];
+    const fileName = file.name.toLowerCase();
+    const hasAllowedExtension = allowedExtensions.some((ext) =>
+      fileName.endsWith(ext)
+    );
+
+    if (!hasAllowedExtension) {
+      return NextResponse.json(
+        { error: "Unsupported file type" },
+        { status: 400 }
+      );
+    }
+
+    if (file.size > maxUploadSize) {
+      return NextResponse.json(
+        { error: "File too large" },
+        { status: 400 }
+      );
     }
 
     const bytes = await file.arrayBuffer();
@@ -66,7 +87,7 @@ export async function POST(req: NextRequest) {
     const fileId = uploaded.$id;
 
     // ✅ Enqueue job (NO filePath anymore)
-    const job = await cadQueue.add("process-model", {
+    const job = await getCadQueue().add("process-model", {
       jobType: "process-model",
       fileId,
       fileName: file.name,
