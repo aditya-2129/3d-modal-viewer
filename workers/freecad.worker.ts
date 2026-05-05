@@ -52,12 +52,12 @@ function runPython(script: string, args: string[], timeoutMs: number) {
     // This stdin approach works for both snap and apt FreeCAD.
     const escapedArgs = [script, ...args].map(a => a.replace(/'/g, "\\'"));
     const argv = escapedArgs.map(a => `'${a}'`).join(", ");
-    const stdin = `import sys; sys.argv = [${argv}]; exec(compile(open('${escapedArgs[0]}').read(), '${escapedArgs[0]}', 'exec'), {'__name__': '__main__', '__file__': '${escapedArgs[0]}'})`;
+    const stdin = `import sys; sys.argv = [${argv}]; exec(compile(open('${escapedArgs[0]}', encoding='utf-8').read(), '${escapedArgs[0]}', 'exec'), {'__name__': '__main__', '__file__': '${escapedArgs[0]}'})`;
 
     const { cmd, args: spawnArgs } = getFreeCADSpawn();
     const proc = spawn(cmd, spawnArgs, {
       timeout: timeoutMs,
-      env: process.env,
+      env: { ...process.env, PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1" },
     });
 
     proc.stdin.write(stdin + "\n");
