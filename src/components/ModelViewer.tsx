@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import { OrbitControls, Html, Environment, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
+import { account } from "@/lib/appwrite";
 
 
 interface ModelViewerProps {
@@ -212,6 +213,8 @@ export default function ModelViewer({ meshFileUrl, mapping, selectedIndices }: M
   const [resetToken, setResetToken] = useState(0);
   const [canvasKey, setCanvasKey] = useState(0);
   const [isPanMode, setIsPanMode] = useState(false);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [webglAvailable, setWebglAvailable] = useState(true);
 
   useEffect(() => {
@@ -221,7 +224,55 @@ export default function ModelViewer({ meshFileUrl, mapping, selectedIndices }: M
     check();
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    async function loadSecureModel() {
+      try {
+        const jwtRes = await account.createJWT().catch(() => null);
+        const headers: Record<string, string> = {
+          "X-Appwrite-Project": process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!,
+        };
+        if (jwtRes) headers["X-Appwrite-JWT"] = jwtRes.jwt;
+
+        const res = await fetch(meshFileUrl, { headers });
+        if (!res.ok) {
+          if (res.status === 404) throw new Error("Model file not found or access denied.");
+          throw new Error(`Failed to fetch model: ${res.status}`);
+        }
+        
+        const blob = await res.blob();
+        if (!active) return;
+        const url = URL.createObjectURL(blob);
+        setBlobUrl(url);
+      } catch (err) {
+        if (active) {
+          console.error("Error loading secure model:", err);
+          setError(err instanceof Error ? err.message : "Failed to load model");
+        }
+      }
+    }
+
+    loadSecureModel();
+
+    return () => {
+      active = false;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [meshFileUrl]);
+
   const handleReset = () => setResetToken(t => t + 1);
+
+  if (error) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-void">
+        <div className="text-center text-[#fca5a5] bg-[rgba(20,20,20,0.9)] p-8 rounded-xl border border-[#7f1d1d] max-w-sm">
+          <h3 className="font-semibold mb-2">Failed to load 3D model</h3>
+          <p className="text-sm text-[#a1a1aa] mb-3">{error}</p>
+          <p className="text-xs text-[#71717a]">This may be due to a session timeout or a network issue. Try refreshing the page.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!webglAvailable) {
     return (
@@ -262,12 +313,16 @@ export default function ModelViewer({ meshFileUrl, mapping, selectedIndices }: M
         <Environment preset="city" />
 
         <React.Suspense fallback={<Html center><p className="text-[#71717a]">Loading 3D model…</p></Html>}>
-          <GLBModel
-            meshFileUrl={meshFileUrl}
-            mapping={mapping}
-            selectedIndices={selectedIndices}
-            resetToken={resetToken}
-          />
+          {blobUrl ? (
+            <GLBModel
+              meshFileUrl={blobUrl}
+              mapping={mapping}
+              selectedIndices={selectedIndices}
+              resetToken={resetToken}
+            />
+          ) : (
+            <Html center><p className="text-[#71717a]">Fetching secure data…</p></Html>
+          )}
         </React.Suspense>
 
         <OrbitControls

@@ -23,11 +23,14 @@ export async function getAnalysis(analysisId: string) {
   };
 }
 
-export async function getProjects(): Promise<Project[]> {
+export async function getProjects(userId: string): Promise<Project[]> {
   const response = await databases.listDocuments(
     DATABASE_ID,
     PROJECTS_COLLECTION_ID,
-    [Query.orderDesc("createdAt")]
+    [
+      Query.equal("userId", userId),
+      Query.orderDesc("createdAt")
+    ]
   );
   return response.documents as unknown as Project[];
 }

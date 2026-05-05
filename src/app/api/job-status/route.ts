@@ -1,13 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCadQueue } from "@/lib/queue";
+import { getSessionUser } from "@/lib/auth-server";
 
 export async function GET(req: NextRequest) {
   const jobId = req.nextUrl.searchParams.get("jobId");
   if (!jobId) return NextResponse.json({ error: "Missing jobId" }, { status: 400 });
 
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const cadQueue = getCadQueue();
   const job = await cadQueue.getJob(jobId);
   if (!job) return NextResponse.json({ error: "Job not found" }, { status: 404 });
+
+  // Security check: ensure the job belongs to the requester
+  if (job.data.userId && job.data.userId !== user.$id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const state = await job.getState();
   const progress = job.progress as number ?? 0;

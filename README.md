@@ -1,4 +1,4 @@
-# AutoQuotation
+# 3D Model Viewer
 
 Experimental 3D CAD viewer and geometry analysis app.
 

@@ -124,12 +124,12 @@
         {
             "$id": "analysis",
             "$permissions": [
-                "read(\"any\")"
+                "create(\"users\")"
             ],
             "databaseId": "3d-modal-viewer-database",
             "name": "analysis",
             "enabled": true,
-            "rowSecurity": false,
+            "rowSecurity": true,
             "columns": [
                 {
                     "key": "created_at",
@@ -181,6 +181,15 @@
                     "required": false,
                     "array": false,
                     "size": 2048,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "glb_file_id",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
                     "default": null,
                     "encrypt": false
                 },
@@ -284,9 +293,9 @@
         {
             "$id": "glb-meshes",
             "$permissions": [
-                "read(\"any\")"
+                "create(\"users\")"
             ],
-            "fileSecurity": false,
+            "fileSecurity": true,
             "name": "GLB Meshes",
             "enabled": true,
             "maximumFileSize": 50000000,

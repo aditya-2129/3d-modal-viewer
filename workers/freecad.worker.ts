@@ -4,7 +4,7 @@ import { spawn } from "child_process";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { readFile, rm } from "fs/promises";
 import { join } from "path";
-import { Client, Databases, Storage, ID, Query, AppwriteException } from "node-appwrite";
+import { Client, Databases, Storage, ID, Query, AppwriteException, Permission, Role } from "node-appwrite";
 import IORedis from "ioredis";
 import type { CadJobPayload } from "../src/lib/queue";
 import { DATABASE_ID } from "../src/lib/constants";
@@ -117,7 +117,7 @@ const connection = new IORedis(process.env.REDIS_URL!, {
 new Worker<CadJobPayload>(
   "cad-processing",
   async (job: Job<CadJobPayload>) => {
-    const { jobType, fileId, filePath, fileHash, projectId } = job.data;
+    const { jobType, fileId, filePath, fileHash, projectId, fileName, userId } = job.data;
     if (!fileId) {
       throw new Error("fileId is required");
     }
@@ -139,7 +139,13 @@ new Worker<CadJobPayload>(
       const fileBuffer = await storage.getFileDownload(BUCKET_ID, fileId);
       const uploadsDir = `${process.cwd()}/uploads`;
       mkdirSync(uploadsDir, { recursive: true });
-      tempPath = `${uploadsDir}/${fileId}.step`;
+
+      // Preserve original extension for FreeCAD/Python scripts
+      const extension = fileName
+        ? fileName.slice(fileName.lastIndexOf(".")).toLowerCase()
+        : ".step";
+      tempPath = `${uploadsDir}/${fileId}${extension}`;
+
       writeFileSync(
         tempPath,
         Buffer.isBuffer(fileBuffer) ? fileBuffer : Buffer.from(fileBuffer),
@@ -206,10 +212,16 @@ new Worker<CadJobPayload>(
 
       await job.updateProgress(85);
 
+      const permissions = userId ? [
+        Permission.read(Role.user(userId)),
+        Permission.write(Role.user(userId)),
+      ] : [];
+
       const uploaded = await storage.createFile(
         BUCKET_ID,
         ID.unique(),
         InputFile.fromBuffer(glbBuffer, `${fileHash}.glb`),
+        permissions
       );
 
       await job.updateProgress(95);
@@ -228,8 +240,10 @@ new Worker<CadJobPayload>(
             parts_data: JSON.stringify(parts),
             mapping: JSON.stringify(mapping),
             glb_url: glbUrl,
+            glb_file_id: uploaded.$id,
             created_at: new Date().toISOString(),
           },
+          permissions
         );
       } catch (error) {
         const isDuplicateAnalysis =

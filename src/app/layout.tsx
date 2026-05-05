@@ -3,8 +3,8 @@ import { AuthProvider } from "@/hooks/useAuth";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AutoQuotation | Precision CNC Quoting",
-  description: "Automated quotation generator for CNC-machined 3D models.",
+  title: "3D Model Viewer | Professional CAD Analysis",
+  description: "Analyze and view STEP and IGES files in the browser.",
 };
 
 export const viewport = {

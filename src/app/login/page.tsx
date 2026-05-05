@@ -32,10 +32,10 @@ export default function LoginPage() {
       <div className="upload-card" style={{ maxWidth: 420 }}>
         <header className="header flex flex-col items-center">
           <h1 className="font-display text-[1.9rem] font-extrabold text-center leading-tight mb-2 text-fg">
-            Auto{" "}
-            <span className="bg-gradient-to-br from-violet via-[#a78bfa] to-lime bg-clip-text text-transparent">Quotation</span>
+            3D Model{" "}
+            <span className="bg-gradient-to-br from-violet via-[#a78bfa] to-lime bg-clip-text text-transparent">Viewer</span>
           </h1>
-          <p>Sign in to access CNC quoting tools</p>
+          <p>Sign in to access your 3D model projects</p>
         </header>
 
         <button
@@ -52,7 +52,7 @@ export default function LoginPage() {
           Continue with Google
         </button>
 
-        <p className="upload-footer">AutoQuotation · v2 · Secure Login</p>
+        <p className="upload-footer">3D Model Viewer · v2 · Secure Login</p>
       </div>
     </main>
   );

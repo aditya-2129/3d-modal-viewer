@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { getAnalysis } from "@/lib/db";
+import { account } from "@/lib/appwrite";
 
 const ModelViewer = dynamic(() => import("@/components/ModelViewer"), {
   ssr: false,
@@ -60,9 +61,10 @@ interface AnalysisWorkspaceProps {
   projectId?: string;
   projectName?: string;
   analysisId?: string;
+  isLoadingProject?: boolean;
 }
 
-export default function AnalysisWorkspace({ projectId, projectName, analysisId }: AnalysisWorkspaceProps) {
+export default function AnalysisWorkspace({ projectId, projectName, analysisId, isLoadingProject }: AnalysisWorkspaceProps) {
   const router = useRouter();
   const [view, setView] = useState<"upload" | "analysis">("upload");
   const [dragActive, setDragActive] = useState(false);
@@ -73,6 +75,7 @@ export default function AnalysisWorkspace({ projectId, projectName, analysisId }
   const [processingError, setProcessingError] = useState<string | null>(null);
   const [processedModel, setProcessedModel] = useState<ProcessedModel | null>(null);
   const [selectedIndices, setSelectedIndices] = useState<number[] | null>(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(!!analysisId);
   const inputRef = useRef<HTMLInputElement>(null);
   const simIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -90,16 +93,36 @@ export default function AnalysisWorkspace({ projectId, projectName, analysisId }
 
   // On mount: if project has a cached analysis, load it directly
   useEffect(() => {
-    if (!analysisId) return;
-    (async () => {
+    let active = true;
+    if (!analysisId) {
+      setView("upload");
+      setProcessedModel(null);
+      setSelectedIndices(null);
+      setIsInitialLoading(false);
+      return;
+    }
+
+    setIsInitialLoading(true);
+    void (async () => {
       try {
         const analysis = await getAnalysis(analysisId);
-        setProcessedModel({ ...analysis, fileName: projectName });
-        setView("analysis");
+        if (active) {
+          setProcessedModel({ ...analysis, fileName: projectName });
+          setView("analysis");
+        }
       } catch {
-        // No cached analysis — show upload screen
+        if (active) {
+          setView("upload");
+          setProcessedModel(null);
+        }
+      } finally {
+        if (active) setIsInitialLoading(false);
       }
     })();
+
+    return () => {
+      active = false;
+    };
   }, [analysisId, projectName]);
 
   useEffect(() => {
@@ -127,7 +150,17 @@ export default function AnalysisWorkspace({ projectId, projectName, analysisId }
     fd.append("file", file);
     if (projectId) fd.append("projectId", projectId);
     try {
-      const res = await fetch("/api/process-model", { method: "POST", body: fd });
+      const jwtRes = await account.createJWT().catch(() => null);
+      const headers: Record<string, string> = {
+        "X-Appwrite-Project": process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID!,
+      };
+      if (jwtRes) headers["X-Appwrite-JWT"] = jwtRes.jwt;
+
+      const res = await fetch("/api/process-model", { 
+        method: "POST", 
+        body: fd,
+        headers
+      });
       const data = await res.json();
       if (data.error) { clearProcessingTimers(); setProcessingError(data.error); setProcessing(false); return; }
 
@@ -149,7 +182,9 @@ export default function AnalysisWorkspace({ projectId, projectName, analysisId }
 
       pollIntervalRef.current = setInterval(async () => {
         try {
-          const statusRes = await fetch(`/api/job-status?jobId=${jobId}`);
+          const statusRes = await fetch(`/api/job-status?jobId=${jobId}`, {
+            headers
+          });
           const status = await statusRes.json();
           if (status.status === "processing") {
             if (!jobStarted) {
@@ -254,6 +289,18 @@ export default function AnalysisWorkspace({ projectId, projectName, analysisId }
       if (inputRef.current) inputRef.current.value = "";
     }
   };
+
+  /* ── LOADING VIEW ── */
+  if (isLoadingProject || isInitialLoading) {
+    return (
+      <div className="flex items-center justify-center w-screen h-[100dvh] bg-void">
+        <div className="text-center">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full border-[3px] border-[rgba(124,58,237,0.2)] border-t-violet animate-spin" />
+          <p className="font-mono text-[0.8rem] text-fg-sub tracking-wider uppercase">Loading Workspace…</p>
+        </div>
+      </div>
+    );
+  }
 
   /* ── ANALYSIS VIEW ── */
   if (view === "analysis" && processedModel) {
@@ -456,7 +503,7 @@ export default function AnalysisWorkspace({ projectId, projectName, analysisId }
           </div>
         )}
 
-        <p className="upload-footer">AutoQuotation · v2 · STEP & IGES Analyzer</p>
+        <p className="upload-footer">3D Model Viewer · v2 · STEP & IGES Analyzer</p>
       </div>
     </main>
   );

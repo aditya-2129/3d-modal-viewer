@@ -19,17 +19,18 @@ export default function DashboardPage() {
   const [modalOpen, setModalOpen] = useState(false);
 
   const fetchProjects = useCallback(async () => {
+    if (!user?.$id) return;
     try {
       setLoading(true);
       setError(null);
-      const data = await getProjects();
+      const data = await getProjects(user.$id);
       setProjects(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load projects");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.$id]);
 
   useEffect(() => {
     const load = async () => {
@@ -57,7 +58,7 @@ export default function DashboardPage() {
       <header className="flex items-center justify-between px-6 py-4 border-b border-border bg-[rgba(13,13,26,0.8)] backdrop-blur-sm sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <Link href="/" className="font-display text-[1.1rem] font-extrabold text-fg hover:text-violet transition-colors duration-base">
-            Auto<span className="bg-gradient-to-br from-violet via-[#a78bfa] to-lime bg-clip-text text-transparent">Quotation</span>
+            3D Model<span className="bg-gradient-to-br from-violet via-[#a78bfa] to-lime bg-clip-text text-transparent">Viewer</span>
           </Link>
           <span className="font-mono text-[0.58rem] tracking-[0.14em] uppercase text-fg-muted bg-surface border border-border rounded-xs px-2 py-[2px]">
             Dashboard

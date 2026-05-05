@@ -12,6 +12,7 @@ export type CadJobPayload = {
   fileName?: string;
   fileHash: string;
   projectId?: string;
+  userId?: string;
 };
 
 let connection: IORedis | undefined;
