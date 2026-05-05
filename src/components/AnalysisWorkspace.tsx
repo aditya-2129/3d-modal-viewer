@@ -99,8 +99,10 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
     setProcessingProgress(2);
     setQueueAhead(null);
 
-    // Start simulation immediately — covers the Appwrite upload phase too
+    // Simulate progress — pauses while waiting in queue (queueAhead > 0)
+    let paused = false;
     const sim = setInterval(() => {
+      if (paused) return;
       setProcessingProgress(prev => prev < 79 ? Math.min(79, prev + 0.2) : prev);
     }, 500);
 
@@ -126,12 +128,19 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
       // Job queued — start polling, simulation keeps running
       const { jobId } = data;
       setProcessingStatus("Queued…");
+      let jobStarted = false;
 
       const poll = setInterval(async () => {
         try {
           const statusRes = await fetch(`/api/job-status?jobId=${jobId}`);
           const status = await statusRes.json();
           if (status.status === "processing") {
+            if (!jobStarted) {
+              jobStarted = true;
+              setQueueAhead(null);
+              // Reset progress so bar restarts from a clean state when job actually begins
+              setProcessingProgress(10);
+            }
             const p = status.progress ?? 0;
             setProcessingProgress(prev => Math.max(prev, p));
             if (p < 20) setProcessingStatus("Downloading file…");
@@ -143,6 +152,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
           if (status.status === "queued") {
             const ahead = status.ahead ?? 0;
             setQueueAhead(ahead);
+            paused = ahead > 0;
             setProcessingStatus(ahead === 0 ? "Starting soon…" : "Waiting in queue…");
           }
           if (status.status === "done") {
