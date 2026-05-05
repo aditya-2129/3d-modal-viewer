@@ -14,4 +14,4 @@ RUN npm install
 COPY . .
 
 # Use xvfb-run to provide a virtual display for FreeCAD
-CMD ["xvfb-run", "-a", "npm", "run", "worker"]
+CMD ["npm", "run", "worker"]
