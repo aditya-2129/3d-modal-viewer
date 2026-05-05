@@ -95,18 +95,27 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
   const processFile = useCallback(async (file: File) => {
     setProcessing(true);
     setProcessingError(null);
-    setProcessingStatus("Queued…");
-    setProcessingProgress(0);
+    setProcessingStatus("Uploading file…");
+    setProcessingProgress(2);
+    setQueueAhead(null);
+
+    // Start simulation immediately — covers the Appwrite upload phase too
+    const sim = setInterval(() => {
+      setProcessingProgress(prev => prev < 79 ? Math.min(79, prev + 0.2) : prev);
+    }, 500);
+
     const fd = new FormData();
     fd.append("file", file);
     if (projectId) fd.append("projectId", projectId);
     try {
       const res = await fetch("/api/process-model", { method: "POST", body: fd });
       const data = await res.json();
-      if (data.error) { setProcessingError(data.error); setProcessing(false); return; }
+      if (data.error) { clearInterval(sim); setProcessingError(data.error); setProcessing(false); return; }
 
       // Cache hit — analysis already done
       if (data.cached && data.analysisId) {
+        clearInterval(sim);
+        setProcessingProgress(100);
         const analysis = await getAnalysis(data.analysisId);
         setProcessedModel({ ...analysis, fileName: file.name });
         setView("analysis");
@@ -114,15 +123,9 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
         return;
       }
 
-      // Poll for job completion
+      // Job queued — start polling, simulation keeps running
       const { jobId } = data;
-      // Animate progress from 5→79 at ~0.25%/500ms (~2.5min to fill the FreeCAD phase)
-      // Real progress from the worker will jump ahead when it can
-      setProcessingProgress(5);
-      setProcessingStatus("Starting…");
-      const sim = setInterval(() => {
-        setProcessingProgress(prev => prev < 79 ? Math.min(79, prev + 0.25) : prev);
-      }, 500);
+      setProcessingStatus("Queued…");
 
       const poll = setInterval(async () => {
         try {
@@ -140,7 +143,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
           if (status.status === "queued") {
             const ahead = status.ahead ?? 0;
             setQueueAhead(ahead);
-            setProcessingStatus(ahead === 0 ? "Up next…" : `Waiting in queue…`);
+            setProcessingStatus(ahead === 0 ? "Up next…" : "Waiting in queue…");
           }
           if (status.status === "done") {
             setQueueAhead(null);
@@ -169,6 +172,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
         }
       }, 1000);
     } catch (e: unknown) {
+      clearInterval(sim);
       setProcessingError(e instanceof Error ? e.message : "Processing failed");
       setProcessing(false);
     }
