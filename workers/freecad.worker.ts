@@ -111,6 +111,8 @@ const { jobType, fileId, filePath, fileHash, projectId } = job.data;
 
     const { databases, storage } = getAppwriteClient();
 
+    await job.updateProgress(5);
+
     // ── Download file from Appwrite ─────────────────
     let tempPath = "";
 
@@ -132,6 +134,8 @@ if (filePath) {
 const outDir = `${tempPath}_out`;
 mkdirSync(outDir, { recursive: true });
 
+    await job.updateProgress(15);
+
     // ── Cache check ────────────────────────────────
     const existing = await databases.listDocuments(DB_ID, "analysis", [
       Query.equal("file_hash", fileHash),
@@ -143,6 +147,8 @@ mkdirSync(outDir, { recursive: true });
         return { cached: true, analysisId: doc.$id };
       }
     }
+
+    await job.updateProgress(20);
 
     // ── Run Python ────────────────────────────────
     const script =
@@ -160,6 +166,8 @@ mkdirSync(outDir, { recursive: true });
 
     if (error || !result) throw new Error(error || "Python failed");
 
+    await job.updateProgress(80);
+
     // ── Handle analyze only ───────────────────────
     if (jobType === "analyze-parts") {
       return { parts: result.parts ?? result };
@@ -171,11 +179,15 @@ mkdirSync(outDir, { recursive: true });
 
     const glbBuffer = await readFile(glbPath);
 
+    await job.updateProgress(85);
+
     const uploaded = await storage.createFile(
       BUCKET_ID,
       ID.unique(),
       InputFile.fromBuffer(glbBuffer, `${fileHash}.glb`),
     );
+
+    await job.updateProgress(95);
 
     const glbUrl = `${process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${BUCKET_ID}/files/${uploaded.$id}/view?project=${process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID}`;
 

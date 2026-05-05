@@ -67,6 +67,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
   const [dragActive, setDragActive] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>("Queued…");
+  const [processingProgress, setProcessingProgress] = useState(0);
   const [processingError, setProcessingError] = useState<string | null>(null);
   const [processedModel, setProcessedModel] = useState<ProcessedModel | null>(null);
   const [selectedIndices, setSelectedIndices] = useState<number[] | null>(null);
@@ -94,6 +95,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
     setProcessing(true);
     setProcessingError(null);
     setProcessingStatus("Queued…");
+    setProcessingProgress(0);
     const fd = new FormData();
     fd.append("file", file);
     if (projectId) fd.append("projectId", projectId);
@@ -113,14 +115,33 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
 
       // Poll for job completion
       const { jobId } = data;
+      // Animate progress from 5→79 at ~0.25%/500ms (~2.5min to fill the FreeCAD phase)
+      // Real progress from the worker will jump ahead when it can
+      setProcessingProgress(5);
+      setProcessingStatus("Starting…");
+      const sim = setInterval(() => {
+        setProcessingProgress(prev => prev < 79 ? Math.min(79, prev + 0.25) : prev);
+      }, 500);
+
       const poll = setInterval(async () => {
         try {
           const statusRes = await fetch(`/api/job-status?jobId=${jobId}`);
           const status = await statusRes.json();
-          if (status.status === "processing") setProcessingStatus(`Processing… ${status.progress ?? 0}%`);
-          if (status.status === "queued") setProcessingStatus("Queued…");
+          if (status.status === "processing") {
+            const p = status.progress ?? 0;
+            setProcessingProgress(prev => Math.max(prev, p));
+            if (p < 20) setProcessingStatus("Downloading file…");
+            else if (p < 50) setProcessingStatus("Starting FreeCAD…");
+            else if (p < 80) setProcessingStatus("Analyzing geometry…");
+            else if (p < 90) setProcessingStatus("Generating mesh…");
+            else setProcessingStatus("Uploading result…");
+          }
+          if (status.status === "queued") { setProcessingStatus("Queued…"); }
           if (status.status === "done") {
             clearInterval(poll);
+            clearInterval(sim);
+            setProcessingProgress(100);
+            setProcessingStatus("Done!");
             const result = status.result;
             if (result.analysisId) {
               const analysis = await getAnalysis(result.analysisId);
@@ -133,13 +154,14 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
           }
           if (status.status === "failed") {
             clearInterval(poll);
+            clearInterval(sim);
             setProcessingError(status.error ?? "Processing failed");
             setProcessing(false);
           }
         } catch {
           // transient network error — keep polling
         }
-      }, 2500);
+      }, 1000);
     } catch (e: unknown) {
       setProcessingError(e instanceof Error ? e.message : "Processing failed");
       setProcessing(false);
@@ -302,10 +324,21 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
 
       {/* Processing overlay */}
       {processing && (
-        <div className="fixed inset-0 z-50 bg-[rgba(5,5,10,0.8)] backdrop-blur-sm flex flex-col items-center justify-center gap-4">
+        <div className="fixed inset-0 z-50 bg-[rgba(5,5,10,0.85)] backdrop-blur-sm flex flex-col items-center justify-center gap-6 px-8">
           <div className="w-12 h-12 rounded-full border-[3px] border-[rgba(124,58,237,0.2)] border-t-violet animate-spin" />
-          <p className="font-mono text-[0.8rem] text-fg-sub">{processingStatus}</p>
-          <p className="font-mono text-[0.65rem] text-fg-muted">FreeCAD is analyzing your model…</p>
+          <div className="flex flex-col items-center gap-2 w-full max-w-xs">
+            <div className="flex justify-between w-full font-mono text-[0.7rem]">
+              <span className="text-fg-sub">{processingStatus}</span>
+              <span className="text-violet">{processingProgress}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-[rgba(124,58,237,0.15)] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-violet to-[#a78bfa] rounded-full transition-all duration-700 ease-out"
+                style={{ width: `${processingProgress}%` }}
+              />
+            </div>
+          </div>
+          <p className="font-mono text-[0.62rem] text-fg-muted">This may take 1–2 minutes for large files</p>
         </div>
       )}
 
