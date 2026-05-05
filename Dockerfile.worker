@@ -1,17 +1,25 @@
-FROM node:20-bullseye
+FROM node:20-bookworm-slim
 
-RUN apt-get update && apt-get install -y \
+# Install system dependencies
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     freecad \
     python3 \
     python3-pip \
+    python3-setuptools \
     xvfb \
-    && pip3 install trimesh \
     && rm -rf /var/lib/apt/lists/*
 
+# Install python dependencies globally
+RUN pip3 install --no-cache-dir trimesh --break-system-packages
+
 WORKDIR /app
+
+# Copy package files first for better caching
 COPY package*.json ./
 RUN npm install
+
+# Copy the rest of the source
 COPY . .
 
-# Use xvfb-run to provide a virtual display for FreeCAD
+# Use xvfb-run to provide a virtual display for FreeCAD if needed by modules
 CMD ["npm", "run", "worker"]
