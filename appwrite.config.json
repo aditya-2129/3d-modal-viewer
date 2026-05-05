@@ -290,7 +290,7 @@
             "name": "GLB Meshes",
             "enabled": true,
             "maximumFileSize": 50000000,
-            "allowedFileExtensions": ["glb"],
+            "allowedFileExtensions": ["glb", "stp", "step"],
             "compression": "gzip",
             "encryption": false,
             "antivirus": false

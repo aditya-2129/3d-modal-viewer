@@ -122,7 +122,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
           if (status.status === "done") {
             clearInterval(poll);
             const result = status.result;
-            if (result.cached && result.analysisId) {
+            if (result.analysisId) {
               const analysis = await getAnalysis(result.analysisId);
               setProcessedModel({ ...analysis, fileName: file.name });
             } else {

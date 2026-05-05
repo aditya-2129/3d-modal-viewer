@@ -62,7 +62,6 @@ function FitCamera({ geometries, resetToken }: { geometries: THREE.BufferGeometr
     camera.position.copy(targetPos);
     // eslint-disable-next-line react-hooks/immutability
     (camera as THREE.PerspectiveCamera).near = Math.max(distance / 1000, 0.01);
-    // eslint-disable-next-line react-hooks/immutability
     (camera as THREE.PerspectiveCamera).far = Math.max(distance * 10, 1000);
     camera.updateProjectionMatrix();
     camera.lookAt(center);

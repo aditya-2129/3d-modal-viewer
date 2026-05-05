@@ -25,7 +25,9 @@ services:
       UPLOAD_DIR: ${UPLOAD_DIR:-/uploads}
 
   worker:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
     restart: unless-stopped
     command: npx tsx workers/freecad.worker.ts
     depends_on:

@@ -1,17 +1,16 @@
 import "dotenv/config";
 import { Worker, Job } from "bullmq";
 import { spawn } from "child_process";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { readFile, rm } from "fs/promises";
 import { join } from "path";
 import { Client, Databases, Storage, ID, Query } from "node-appwrite";
 import IORedis from "ioredis";
-import { globSync } from "glob";
 import { CadJobPayload } from "../src/lib/queue";
 import { DATABASE_ID } from "../src/lib/constants";
 import { InputFile } from "node-appwrite/file";
 
-// ── Appwrite client ──────────────────────────────────────────────────────────
+// ── Appwrite ─────────────────────────────────────────
 function getAppwriteClient() {
   const client = new Client()
     .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
@@ -23,78 +22,18 @@ function getAppwriteClient() {
 const DB_ID = process.env.APPWRITE_DATABASE_ID ?? DATABASE_ID;
 const BUCKET_ID = process.env.APPWRITE_MESH_BUCKET_ID ?? "glb-meshes";
 
-// ── FreeCAD Python resolution ────────────────────────────────────────────────
-const FREE_CAD_BASE = existsSync("/snap/freecad/current")
-  ? "/snap/freecad/current"
-  : existsSync("/snap/freecad/2337")
-    ? "/snap/freecad/2337"
-    : "/snap/freecad/current";
-
-const KF6_BASE = existsSync("/snap/kf6-core24/current")
-  ? "/snap/kf6-core24/current"
-  : existsSync("/snap/kf6-core24/36")
-    ? "/snap/kf6-core24/36"
-    : "/snap/kf6-core24/current";
-
-const SNAP_LIB_DIRS = [
-  join(FREE_CAD_BASE, "usr/lib"),
-  join(FREE_CAD_BASE, "usr/lib/x86_64-linux-gnu"),
-  join(KF6_BASE, "usr/lib/x86_64-linux-gnu"),
-  "/usr/lib/freecad/lib",
-  "/usr/lib/freecad-python3/lib",
-  "/usr/lib/x86_64-linux-gnu/freecad/lib",
-];
-
-const TRIMESH_PATHS = [
-  join(process.cwd(), ".python-packages"),
-  "/usr/local/lib/python3.9/dist-packages",
-  "/usr/local/lib/python3.12/dist-packages",
-].filter(existsSync);
-
-function resolveFreeCADPython(): string {
-  if (process.env.FREECAD_PYTHON) return process.env.FREECAD_PYTHON;
-  if (process.platform === "win32")
-    return "C:\\Program Files\\FreeCAD 1.1\\bin\\python.exe";
-  const snapPy = join(FREE_CAD_BASE, "bin/python3");
-  if (existsSync(snapPy)) return snapPy;
-  // Nix store — find FreeCAD's own Python so versions match
-  try {
-    for (const pattern of [
-      "/nix/store/*freecad*/bin/python3",
-      "/nix/store/*freecad*/bin/python",
-    ]) {
-      const matches: string[] = globSync(pattern).sort().reverse();
-      if (matches.length) return matches[0];
-    }
-  } catch {
-    /* glob unavailable, fall through */
-  }
-  return "python3";
-}
-
-function buildEnv(): NodeJS.ProcessEnv {
-  const env = { ...process.env };
-  const snapLibs = SNAP_LIB_DIRS.filter(existsSync).join(":");
-  if (snapLibs) {
-    env.LD_LIBRARY_PATH = env.LD_LIBRARY_PATH
-      ? `${snapLibs}:${env.LD_LIBRARY_PATH}`
-      : snapLibs;
-    // Also add to PYTHONPATH so "import FreeCAD" works
-    env.PYTHONPATH = env.PYTHONPATH
-      ? `${snapLibs}:${env.PYTHONPATH}`
-      : snapLibs;
-  }
-  if (TRIMESH_PATHS.length) {
-    const pypath = TRIMESH_PATHS.join(":");
-    env.PYTHONPATH = env.PYTHONPATH ? `${pypath}:${env.PYTHONPATH}` : pypath;
-  }
-  return env;
-}
-
-const FREECAD_PYTHON = resolveFreeCADPython();
 const SCRIPTS_DIR = join(process.cwd(), "scripts");
 
-// ── Spawn helper ─────────────────────────────────────────────────────────────
+// Detect whether we're running under snap (local dev) or apt (Docker).
+// snap FreeCAD: `snap run freecad.cmd -c`
+// apt FreeCAD:  `freecadcmd -c`  (xvfb-run wrapper not needed for headless)
+function getFreeCADSpawn(): { cmd: string; args: string[] } {
+  if (existsSync("/snap/freecad/current")) {
+    return { cmd: "snap", args: ["run", "freecad.cmd", "-c"] };
+  }
+  return { cmd: "freecadcmd", args: ["-c"] };
+}
+
 interface PythonResult {
   parts?: unknown[];
   mapping?: unknown[];
@@ -102,178 +41,165 @@ interface PythonResult {
   [key: string]: unknown;
 }
 
-function runPython(
-  script: string,
-  args: string[],
-  timeoutMs: number,
-): Promise<{ result?: PythonResult; stderr: string; error?: string }> {
-  return new Promise((resolve) => {
-    const proc = spawn(FREECAD_PYTHON, [script, ...args], {
+// ── Python runner ───────────────────────────────────
+function runPython(script: string, args: string[], timeoutMs: number) {
+  return new Promise<{ result?: PythonResult; error?: string }>((resolve) => {
+    console.log("[DEBUG] Running FreeCAD:", script, args);
+
+    // FreeCAD must receive the script via stdin with sys.argv pre-set.
+    // Passing the script as a positional arg causes a snap sandbox error,
+    // and --pass before the script leaves FreeCAD with no script to run (hangs).
+    // This stdin approach works for both snap and apt FreeCAD.
+    const escapedArgs = [script, ...args].map(a => a.replace(/'/g, "\\'"));
+    const argv = escapedArgs.map(a => `'${a}'`).join(", ");
+    const stdin = `import sys; sys.argv = [${argv}]; exec(compile(open('${escapedArgs[0]}').read(), '${escapedArgs[0]}', 'exec'), {'__name__': '__main__', '__file__': '${escapedArgs[0]}'})`;
+
+    const { cmd, args: spawnArgs } = getFreeCADSpawn();
+    const proc = spawn(cmd, spawnArgs, {
       timeout: timeoutMs,
-      env: buildEnv(),
+      env: process.env,
     });
+
+    proc.stdin.write(stdin + "\n");
+    proc.stdin.end();
+
     let stdout = "";
     let stderr = "";
-    proc.stdout.on("data", (d) => {
-      stdout += d.toString();
-    });
-    proc.stderr.on("data", (d) => {
-      stderr += d.toString();
-    });
-    proc.on("close", (code) => {
-      const s = stdout.indexOf("__RESULT__");
-      const e = stdout.indexOf("__END__");
-      if (s !== -1 && e !== -1) {
+
+    proc.stdout.on("data", (d) => (stdout += d.toString()));
+    proc.stderr.on("data", (d) => (stderr += d.toString()));
+
+    proc.on("close", () => {
+      console.log("[DEBUG] PY STDOUT:", stdout);
+      console.log("[DEBUG] PY STDERR:", stderr);
+
+      const match = stdout.match(/__RESULT__([\s\S]*?)__END__/);
+      if (match) {
         try {
-          return resolve({
-            result: JSON.parse(stdout.slice(s + 10, e)),
-            stderr,
-          });
-        } catch {}
+          const parsed = JSON.parse(match[1]);
+          if (parsed.error) {
+            resolve({ error: parsed.error });
+          } else {
+            resolve({ result: parsed });
+          }
+          return;
+        } catch {
+          resolve({ error: "Failed to parse Python JSON output" });
+          return;
+        }
       }
-      const jsonMatch = stdout.match(/(\{[\s\S]*\})\s*$/);
-      if (jsonMatch) {
-        try {
-          return resolve({ result: JSON.parse(jsonMatch[1]), stderr });
-        } catch {}
-      }
-      resolve({
-        error: `FreeCAD exited ${code}. stderr: ${stderr.slice(-500)}`,
-        stderr,
-      });
+
+      resolve({ error: stderr || "No __RESULT__ block in Python output" });
     });
-    proc.on("error", (err) => resolve({ error: err.message, stderr }));
+
+    proc.on("error", (err) => resolve({ error: err.message }));
   });
 }
 
-// ── Worker ───────────────────────────────────────────────────────────────────
-if (!process.env.REDIS_URL) {
-  throw new Error("REDIS_URL is not set");
-}
-
-const redisUrl = process.env.REDIS_URL;
-console.log(
-  `[worker] Connecting to Redis at: ${redisUrl.replace(/:[^@/]+@/, ":****@")}`,
-);
-
-const connection = new IORedis(redisUrl, {
+// ── Worker ──────────────────────────────────────────
+const connection = new IORedis(process.env.REDIS_URL!, {
   maxRetriesPerRequest: null,
 });
 
-const worker = new Worker<CadJobPayload>(
+new Worker<CadJobPayload>(
   "cad-processing",
   async (job: Job<CadJobPayload>) => {
-    const { jobType, filePath, fileHash, projectId } = job.data;
-    const outDir = `${filePath}_out`;
-    mkdirSync(outDir, { recursive: true });
+const { jobType, fileId, filePath, fileHash, projectId } = job.data;
+    if (!fileId) {
+      throw new Error("fileId is required");
+    }
 
     const { databases, storage } = getAppwriteClient();
 
-    // Cache check — skip if already done for this file hash
-    try {
-      const existing = await databases.listDocuments(DB_ID, "analysis", [
-        Query.equal("file_hash", fileHash),
-      ]);
-      if (existing.documents.length > 0) {
-        const doc = existing.documents[0];
-        if (doc.status === "complete" && doc.glb_url) {
-          if (projectId) {
-            await databases.updateDocument(DB_ID, "projects", projectId, {
-              analysisId: doc.$id,
-            });
-          }
-          return { cached: true, analysisId: doc.$id };
-        }
+    // ── Download file from Appwrite ─────────────────
+    let tempPath = "";
+
+if (filePath) {
+  // LOCAL MODE
+  tempPath = filePath;
+  console.log("[worker] Using local file:", tempPath);
+} else if (fileId) {
+  // PRODUCTION MODE
+  const fileBuffer = await storage.getFileDownload(BUCKET_ID, fileId);
+  const uploadsDir = `${process.cwd()}/uploads`;
+  mkdirSync(uploadsDir, { recursive: true });
+  tempPath = `${uploadsDir}/${fileId}.step`;
+  writeFileSync(tempPath, Buffer.isBuffer(fileBuffer) ? fileBuffer : Buffer.from(fileBuffer));
+} else {
+  throw new Error("No filePath or fileId provided");
+}
+
+const outDir = `${tempPath}_out`;
+mkdirSync(outDir, { recursive: true });
+
+    // ── Cache check ────────────────────────────────
+    const existing = await databases.listDocuments(DB_ID, "analysis", [
+      Query.equal("file_hash", fileHash),
+    ]);
+
+    if (existing.documents.length > 0) {
+      const doc = existing.documents[0];
+      if (doc.status === "complete" && doc.glb_url) {
+        return { cached: true, analysisId: doc.$id };
       }
-    } catch (err) {
-      console.error("[worker] Cache check failed:", err);
     }
 
-    await job.updateProgress(10);
+    // ── Run Python ────────────────────────────────
+    const script =
+      jobType === "analyze-parts" ? "extract_parts.py" : "process_model.py";
 
+    console.log("[DEBUG] tempPath:", tempPath);
+    console.log("[DEBUG] outDir:", outDir);
+    console.log("[DEBUG] file exists:", existsSync(tempPath));
+
+    const { result, error } = await runPython(
+      join(SCRIPTS_DIR, script),
+      [tempPath, outDir],
+      120000,
+    );
+
+    if (error || !result) throw new Error(error || "Python failed");
+
+    // ── Handle analyze only ───────────────────────
     if (jobType === "analyze-parts") {
-      // extract_parts.py — parts metadata only, no GLB
-      const script = join(SCRIPTS_DIR, "extract_parts.py");
-      const { result, error } = await runPython(
-        script,
-        [filePath, outDir],
-        60000,
-      );
-      if (error || !result)
-        throw new Error(error ?? "extract_parts returned no result");
-
-      await job.updateProgress(90);
-      await rm(outDir, { recursive: true, force: true }).catch(() => {});
       return { parts: result.parts ?? result };
     }
 
-    // process_model.py — GLB conversion + parts
-    const script = join(SCRIPTS_DIR, "process_model.py");
-    const { result, error } = await runPython(
-      script,
-      [filePath, outDir],
-      120000,
-    );
-    if (error || !result)
-      throw new Error(error ?? "process_model returned no result");
+    const { glbPath, parts, mapping } = result;
 
-    await job.updateProgress(60);
-
-    const { parts, mapping, glbPath } = result;
-
-    console.log(`[worker] Python result keys:`, Object.keys(result));
-    if (!glbPath) {
-      console.log(`[worker] Python result:`, result);
-      throw new Error(`Missing glbPath in Python result`);
-    }
+    if (!glbPath) throw new Error("Missing glbPath");
 
     const glbBuffer = await readFile(glbPath);
+
     const uploaded = await storage.createFile(
       BUCKET_ID,
       ID.unique(),
       InputFile.fromBuffer(glbBuffer, `${fileHash}.glb`),
     );
+
     const glbUrl = `${process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT}/storage/buckets/${BUCKET_ID}/files/${uploaded.$id}/view?project=${process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID}`;
 
-    await job.updateProgress(80);
-
-    const analysisDoc = await databases.createDocument(
-      DB_ID,
-      "analysis",
-      ID.unique(),
-      {
-        file_hash: fileHash,
-        status: "complete",
-        parts_data: JSON.stringify(parts),
-        mapping: JSON.stringify(mapping),
-        glb_url: glbUrl,
-        created_at: new Date().toISOString(),
-      },
-    );
+    const doc = await databases.createDocument(DB_ID, "analysis", ID.unique(), {
+      file_hash: fileHash,
+      status: "complete",
+      parts_data: JSON.stringify(parts),
+      mapping: JSON.stringify(mapping),
+      glb_url: glbUrl,
+      created_at: new Date().toISOString(),
+    });
 
     if (projectId) {
       await databases.updateDocument(DB_ID, "projects", projectId, {
-        analysisId: analysisDoc.$id,
+        analysisId: doc.$id,
       });
     }
 
-    await job.updateProgress(100);
     await rm(outDir, { recursive: true, force: true }).catch(() => {});
+    await rm(tempPath, { force: true }).catch(() => {});
 
-    return { analysisId: analysisDoc.$id, parts, mapping, meshFileUrl: glbUrl };
+    return { analysisId: doc.$id };
   },
-  {
-    connection,
-    concurrency: 2,
-  },
+  { connection },
 );
 
-worker.on("failed", (job, err) => {
-  console.error(`[worker] job ${job?.id} failed:`, err.message);
-});
-
-worker.on("completed", (job) => {
-  console.log(`[worker] job ${job.id} completed`);
-});
-
-console.log("[worker] freecad worker started, waiting for jobs…");
+console.log("Worker ready");

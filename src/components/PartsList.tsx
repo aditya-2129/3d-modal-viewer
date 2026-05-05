@@ -129,7 +129,7 @@ function PartRow({ group, depth, selectedIndices, onSelect, onSelectAndClose, ex
       <div
         role="button"
         tabIndex={0}
-        aria-selected={isSelected}
+        aria-pressed={isSelected}
         onClick={handleClick}
         onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleClick(); }}}
         className="flex items-start gap-[0.45rem] p-[0.5rem_0.875rem] cursor-pointer border-b border-[rgba(124,58,237,0.06)] transition-[background,border-color] duration-[120ms] outline-none"

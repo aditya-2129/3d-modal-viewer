@@ -12,13 +12,14 @@ export const connection = new IORedis(redisUrl, {
 
 export type JobType = "process-model" | "analyze-parts";
 
-export interface CadJobPayload {
-  jobType: JobType;
-  filePath: string;
-  fileName: string;
+export type CadJobPayload = {
+  jobType: string;
+  fileId: string;
+  filePath?: string;
+  fileName?: string;
   fileHash: string;
   projectId?: string;
-}
+};
 
 export const cadQueue = new Queue<CadJobPayload>("cad-processing", {
   connection,
