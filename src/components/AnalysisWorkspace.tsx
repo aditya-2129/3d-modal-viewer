@@ -339,7 +339,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
           <div className="flex flex-col items-center gap-2 w-full max-w-xs">
             <div className="flex justify-between w-full font-mono text-[0.7rem]">
               <span className="text-fg-sub">{processingStatus}</span>
-              <span className="text-violet">{processingProgress}%</span>
+              <span className="text-violet">{Math.round(processingProgress)}%</span>
             </div>
             <div className="w-full h-1.5 bg-[rgba(124,58,237,0.15)] rounded-full overflow-hidden">
               <div
@@ -347,14 +347,13 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
                 style={{ width: `${processingProgress}%` }}
               />
             </div>
+            {queueAhead !== null && queueAhead > 0 && (
+              <p className="font-mono text-[0.65rem] text-amber-400 self-start">
+                {queueAhead} job{queueAhead > 1 ? "s" : ""} ahead of you in queue
+              </p>
+            )}
           </div>
-          {queueAhead !== null && queueAhead > 0 ? (
-            <p className="font-mono text-[0.62rem] text-amber-400">
-              {queueAhead} job{queueAhead > 1 ? "s" : ""} ahead of you
-            </p>
-          ) : (
-            <p className="font-mono text-[0.62rem] text-fg-muted">This may take 1–2 minutes for large files</p>
-          )}
+          <p className="font-mono text-[0.62rem] text-fg-muted">This may take 1–2 minutes for large files</p>
         </div>
       )}
 
