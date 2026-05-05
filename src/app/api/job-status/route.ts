@@ -20,9 +20,12 @@ export async function GET(req: NextRequest) {
   if (state === "active") {
     return NextResponse.json({ status: "processing", progress });
   }
-  // Job is waiting — find its position in the queue
-  const waiting = await cadQueue.getWaiting();
-  const position = waiting.findIndex(j => j.id === jobId);
-  const ahead = position === -1 ? 0 : position; // 0 = next up
+  // Job is waiting — position = waiting jobs ahead + active jobs (those are blocking too)
+  const [waiting, active] = await Promise.all([
+    cadQueue.getWaiting(),
+    cadQueue.getActive(),
+  ]);
+  const waitPosition = waiting.findIndex(j => j.id === jobId);
+  const ahead = (waitPosition === -1 ? 0 : waitPosition) + active.length;
   return NextResponse.json({ status: "queued", progress: 0, ahead });
 }

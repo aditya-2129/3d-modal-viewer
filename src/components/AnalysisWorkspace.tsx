@@ -143,7 +143,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
           if (status.status === "queued") {
             const ahead = status.ahead ?? 0;
             setQueueAhead(ahead);
-            setProcessingStatus(ahead === 0 ? "Up next…" : "Waiting in queue…");
+            setProcessingStatus(ahead === 0 ? "Starting soon…" : "Waiting in queue…");
           }
           if (status.status === "done") {
             setQueueAhead(null);
