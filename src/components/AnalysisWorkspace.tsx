@@ -68,6 +68,7 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
   const [processing, setProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>("Queued…");
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [queueAhead, setQueueAhead] = useState<number | null>(null);
   const [processingError, setProcessingError] = useState<string | null>(null);
   const [processedModel, setProcessedModel] = useState<ProcessedModel | null>(null);
   const [selectedIndices, setSelectedIndices] = useState<number[] | null>(null);
@@ -136,8 +137,13 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
             else if (p < 90) setProcessingStatus("Generating mesh…");
             else setProcessingStatus("Uploading result…");
           }
-          if (status.status === "queued") { setProcessingStatus("Queued…"); }
+          if (status.status === "queued") {
+            const ahead = status.ahead ?? 0;
+            setQueueAhead(ahead);
+            setProcessingStatus(ahead === 0 ? "Up next…" : `Waiting in queue…`);
+          }
           if (status.status === "done") {
+            setQueueAhead(null);
             clearInterval(poll);
             clearInterval(sim);
             setProcessingProgress(100);
@@ -338,7 +344,13 @@ export default function AnalysisWorkspace({ projectId, projectName }: AnalysisWo
               />
             </div>
           </div>
-          <p className="font-mono text-[0.62rem] text-fg-muted">This may take 1–2 minutes for large files</p>
+          {queueAhead !== null && queueAhead > 0 ? (
+            <p className="font-mono text-[0.62rem] text-amber-400">
+              {queueAhead} job{queueAhead > 1 ? "s" : ""} ahead of you
+            </p>
+          ) : (
+            <p className="font-mono text-[0.62rem] text-fg-muted">This may take 1–2 minutes for large files</p>
+          )}
         </div>
       )}
 
