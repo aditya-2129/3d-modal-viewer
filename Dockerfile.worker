@@ -9,10 +9,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-
 COPY package*.json ./
 RUN npm install
-
 COPY . .
 
-CMD ["npm", "run", "worker"]
+# Use xvfb-run to provide a virtual display for FreeCAD
+CMD ["xvfb-run", "-a", "npm", "run", "worker"]
