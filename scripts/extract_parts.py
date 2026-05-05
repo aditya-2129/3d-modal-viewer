@@ -340,6 +340,8 @@ def detect_symmetry(shape):
     """
     Detect rotational symmetry from principal inertia.
     Two equal moments imply one dominant rotation axis.
+    Falls back to bbox equality + cylinder alignment for parts whose
+    surface features (e.g. spline profiles) skew the inertia tensor.
     """
     result = {
         "kind": "none",
@@ -377,6 +379,42 @@ def detect_symmetry(shape):
             result.update({"kind": "rot", "rotational": True, "axis": axes[1]})
     except Exception:
         pass
+
+    # Bbox fallback: spline/knurl/rib features can skew inertia enough to miss
+    # the threshold above. If two bbox dims are equal within 1.5% AND at least
+    # 2 cylinder faces align with that axis AND one of them reaches ≥70% of the
+    # bbox outer radius, the part is geometrically cylindrical.
+    if not result["rotational"]:
+        try:
+            import FreeCAD as _FC
+            bb = shape.BoundBox
+            dims = [bb.XLength, bb.YLength, bb.ZLength]
+            for i, j, k in ((0, 1, 2), (0, 2, 1), (1, 2, 0)):
+                di, dj = dims[i], dims[j]
+                if di <= 0 or dj <= 0:
+                    continue
+                if abs(di - dj) / max(di, dj) >= 0.015:
+                    continue
+                outer_r = di / 2
+                aligned = [
+                    face.Surface.Radius
+                    for face in shape.Faces
+                    if type(face.Surface).__name__ == "Cylinder"
+                    and abs(abs([face.Surface.Axis.x,
+                                 face.Surface.Axis.y,
+                                 face.Surface.Axis.z][k]) - 1.0) < 0.05
+                ]
+                if len(aligned) >= 2 and max(aligned) >= outer_r * 0.70:
+                    sym_ax = [0.0, 0.0, 0.0]
+                    sym_ax[k] = 1.0
+                    result.update({
+                        "kind": "rot",
+                        "rotational": True,
+                        "axis": _FC.Vector(*sym_ax),
+                    })
+                    break
+        except Exception:
+            pass
 
     return result
 
