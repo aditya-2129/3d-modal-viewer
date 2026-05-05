@@ -534,6 +534,10 @@ def compute_scores(shape, features):
     # Slots/keyways/holes reduce cyl_ratio but don't change what stock shape the part needs.
     if symmetry["rotational"] and outer_cylinder["found"]:
         scores["round"] += 0.45
+    # Secondary signal: rotational symmetry + equal cross-section bbox.
+    # Catches cases where outer cylinder detection fails on complex stepped geometry.
+    if symmetry["rotational"] and main_axis["equal_cross_section"]:
+        scores["round"] += 0.2
     # Only penalise low cyl_ratio when no outer cylinder was confirmed —
     # avoids falsely penalising slotted/keyed round parts.
     if cyl_ratio < 0.2 and not outer_cylinder["found"]:
