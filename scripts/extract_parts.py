@@ -530,7 +530,13 @@ def compute_scores(shape, features):
         and main_axis["length_dim"] == stats["dims_sorted"][0]
     ):
         scores["round"] += 0.3
-    if cyl_ratio < 0.2:
+    # Definitive round signal: confirmed symmetry + validated outer cylinder.
+    # Slots/keyways/holes reduce cyl_ratio but don't change what stock shape the part needs.
+    if symmetry["rotational"] and outer_cylinder["found"]:
+        scores["round"] += 0.45
+    # Only penalise low cyl_ratio when no outer cylinder was confirmed —
+    # avoids falsely penalising slotted/keyed round parts.
+    if cyl_ratio < 0.2 and not outer_cylinder["found"]:
         scores["round"] -= 0.25
 
     scores["rect"] += plane_ratio * 0.6
