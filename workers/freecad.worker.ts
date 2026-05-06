@@ -25,13 +25,13 @@ const BUCKET_ID = process.env.APPWRITE_MESH_BUCKET_ID ?? "glb-meshes";
 const SCRIPTS_DIR = join(process.cwd(), "scripts");
 
 // Detect whether we're running under snap (local dev) or apt (Docker).
-// snap FreeCAD: `snap run freecad.cmd -c`
-// apt FreeCAD:  `freecadcmd -c`  (xvfb-run wrapper not needed for headless)
+// snap FreeCAD: `snap run freecad.cmd -`
+// apt FreeCAD:  `freecadcmd -`
 function getFreeCADSpawn(): { cmd: string; args: string[] } {
   if (existsSync("/snap/freecad/current")) {
-    return { cmd: "snap", args: ["run", "freecad.cmd", "-c"] };
+    return { cmd: "snap", args: ["run", "freecad.cmd", "-"] };
   }
-  return { cmd: "freecadcmd", args: ["-c"] };
+  return { cmd: "freecadcmd", args: ["-"] };
 }
 
 interface PythonResult {

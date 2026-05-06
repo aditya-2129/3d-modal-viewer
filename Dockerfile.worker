@@ -22,4 +22,8 @@ RUN npm install
 COPY . .
 
 # Use xvfb-run to provide a virtual display for FreeCAD if needed by modules
-CMD ["npm", "run", "worker"]
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV DISPLAY=:99
+
+CMD ["xvfb-run", "-a", "npm", "run", "worker"]

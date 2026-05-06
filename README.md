@@ -2,7 +2,7 @@
 
 Experimental 3D CAD viewer and geometry analysis app.
 
-The app lets a signed-in user create projects, upload STEP/STP/IGES files, process them with a FreeCAD worker, and view the generated GLB mesh with a parts/stock breakdown.
+The app lets a signed-in user create projects, upload STEP/STP/IGES/IGS files, process them with a FreeCAD worker, and view the generated GLB mesh with a parts/stock breakdown. All 3D assets are owner-restricted — only the user who uploaded a file can view its mesh.
 
 ## Stack
 
@@ -15,10 +15,25 @@ The app lets a signed-in user create projects, upload STEP/STP/IGES files, proce
 
 ## How It Works
 
-1. The browser uploads a CAD file to `/api/process-model`.
+1. The browser uploads a CAD file to `/api/process-model` (ownership verified server-side).
 2. The API stores the source file in Appwrite Storage and enqueues a BullMQ job.
 3. `workers/freecad.worker.ts` downloads the file, runs `scripts/process_model.py` through FreeCAD, uploads the GLB result, and stores analysis metadata in Appwrite.
 4. The browser polls `/api/job-status` and loads the completed analysis into the viewer.
+5. `ModelViewer` fetches the GLB using an authenticated Appwrite session — files are never served via public URLs.
+
+## Security Model
+
+- Appwrite `glb-meshes` bucket has `fileSecurity: true` — each file is readable only by its owner.
+- `analysis` and `files` collections have Row-Level Security enabled.
+- `/api/process-model` verifies project ownership before queuing a job.
+- Server-side session resolution (`src/lib/auth-server.ts`) supports cookie-based sessions and JWT fallback (`X-Appwrite-JWT` / `Authorization: Bearer`), which fixes auth in localhost environments where cookies may not forward correctly.
+
+## Supported File Formats
+
+| Format | Extensions |
+|---|---|
+| STEP | `.step`, `.stp` |
+| IGES | `.iges`, `.igs` |
 
 ## Requirements
 
@@ -34,7 +49,7 @@ The app lets a signed-in user create projects, upload STEP/STP/IGES files, proce
 Create `.env` in the project root:
 
 ```env
-NEXT_PUBLIC_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+NEXT_PUBLIC_APPWRITE_ENDPOINT=https://fra.cloud.appwrite.io/v1
 NEXT_PUBLIC_APPWRITE_PROJECT_ID=your_project_id
 APPWRITE_API_KEY=your_api_key
 APPWRITE_DATABASE_ID=3d-modal-viewer-database
@@ -84,8 +99,8 @@ http://localhost:4000
 
 The repo includes:
 
-- `Dockerfile` for the Next.js app
-- `Dockerfile.worker` for the FreeCAD worker
+- `Dockerfile` for the Next.js app (`node:20-bookworm-slim`)
+- `Dockerfile.worker` for the FreeCAD worker (`node:20-bookworm-slim`)
 - `docker-compose.yml` for app, worker, and Redis
 
 Run with:
@@ -107,14 +122,14 @@ npm test         # Vitest
 
 ## Project Structure
 
-- `src/app/` - Next.js pages and API routes
-- `src/app/(protected)/` - auth-gated dashboard, viewer, and project pages
-- `src/components/` - viewer, analysis workspace, parts list, dashboard UI
-- `src/lib/` - Appwrite, database helpers, queue setup, constants
-- `workers/freecad.worker.ts` - BullMQ worker that runs FreeCAD
-- `scripts/process_model.py` - FreeCAD processing script used by the worker
-- `scripts/extract_parts.py` - geometry helpers used by `process_model.py`
-- `appwrite.config.json` - Appwrite database/bucket schema
+- `src/app/` — Next.js pages and API routes
+- `src/app/(protected)/` — auth-gated dashboard, viewer, and project pages
+- `src/components/` — viewer, analysis workspace, parts list, dashboard UI
+- `src/lib/` — Appwrite client, database helpers, queue setup, server-side auth
+- `workers/freecad.worker.ts` — BullMQ worker that runs FreeCAD
+- `scripts/process_model.py` — FreeCAD processing script used by the worker
+- `scripts/extract_parts.py` — geometry helpers used by `process_model.py`
+- `appwrite.config.json` — Appwrite database/bucket schema
 
 ## Notes
 
